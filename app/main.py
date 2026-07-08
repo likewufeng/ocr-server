@@ -1,26 +1,16 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 
-from app.api.ocr import router
-from app.services.ocr_service import ocr_service
+from app.api.health import router as health_router
 
+from app.api.ocr import router as ocr_router
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+from app.lifecycle import lifespan
 
-    print("Loading PaddleX OCR...")
-
-    ocr_service.initialize()
-
-    print("OCR Ready.")
-
-    yield
-
+from app.config import APP_NAME
 
 app = FastAPI(
 
-    title="Document OCR",
+    title=APP_NAME,
 
     version="1.0.0",
 
@@ -28,4 +18,6 @@ app = FastAPI(
 
 )
 
-app.include_router(router)
+app.include_router(health_router)
+
+app.include_router(ocr_router)

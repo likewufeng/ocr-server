@@ -13,7 +13,7 @@ class ApiResponse:
         }
 
     @staticmethod
-    def error(msg: str, code: int = 500):
+    def error(msg: str, code=500):
 
         return {
             "code": code,
