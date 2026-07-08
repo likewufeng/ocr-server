@@ -1,52 +1,31 @@
-import os
-import shutil
-import uuid
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 
-from app.service import recognize
-from app.parser import parse
+from app.api.ocr import router
+from app.services.ocr_service import ocr_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    print("Loading PaddleX OCR...")
+
+    ocr_service.initialize()
+
+    print("OCR Ready.")
+
+    yield
+
 
 app = FastAPI(
-    title="OCR Service",
-    version="1.0.0"
+
+    title="Document OCR",
+
+    version="1.0.0",
+
+    lifespan=lifespan
+
 )
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.post("/ocr")
-async def ocr(file: UploadFile = File(...)):
-    ext = file.filename.split(".")[-1]
-    filename = f"{uuid.uuid4()}.{ext}"
-    path = os.path.join(UPLOAD_DIR, filename)
-
-    with open(path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    try:
-        texts = recognize(path)
-        result = parse(texts)
-
-        return {
-            "code": 0,
-            "msg": "success",
-            "data": result
-        }
-
-    except Exception as e:
-        return {
-            "code": 500,
-            "msg": str(e),
-            "data": None
-        }
-
-    finally:
-        if os.path.exists(path):
-            os.remove(path)
+app.include_router(router)

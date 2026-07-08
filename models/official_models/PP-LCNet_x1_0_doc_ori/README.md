@@ -1,14 +1,15 @@
 ---
-license: Apache License 2.0
+license: apache-2.0
 library_name: PaddleOCR
 language:
-- English
-- Chinese
+- en
+- zh
 pipeline_tag: image-to-text
 tags:
 - OCR
 - PaddlePaddle
 - PaddleOCR
+- doc_img_orientation_classification
 ---
 
 # PP-LCNet_x1_0_doc_ori
