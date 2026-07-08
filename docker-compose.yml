@@ -1,0 +1,9 @@
+services:
+  ocr:
+    build: .
+    container_name: ocr-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./models:/root/.paddlex
