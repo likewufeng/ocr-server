@@ -1,6 +1,11 @@
+from app.utils.layout import Layout
+
+
 class BusinessParser:
 
-    def parse(self, texts):
+    def parse(self, layout: Layout):
+
+        texts = layout.texts()
 
         data = {
             "type": "business_license"

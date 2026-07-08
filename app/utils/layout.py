@@ -1,0 +1,282 @@
+r'''
+Author: WuFeng <763467339@qq.com>
+Date: 2026-07-08 20:54:34
+LastEditTime: 2026-07-08 21:06:00
+LastEditors: WuFeng <763467339@qq.com>
+Description: 
+FilePath: \ocr-server\app\utils\layout.py
+Copyright 版权声明
+'''
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+@dataclass
+class OCRLine:
+    """
+    一行 OCR 数据
+    """
+
+    text: str
+
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+    score: float
+
+    @property
+    def width(self) -> int:
+        return self.right - self.left
+
+    @property
+    def height(self) -> int:
+        return self.bottom - self.top
+
+    @property
+    def center_x(self) -> float:
+        return (self.left + self.right) / 2
+
+    @property
+    def center_y(self) -> float:
+        return (self.top + self.bottom) / 2
+
+
+class Layout:
+
+    def __init__(self, lines: List[OCRLine]):
+
+        self.lines = sorted(
+            lines,
+            key=lambda x: (x.top, x.left)
+        )
+
+    def all(self) -> List[OCRLine]:
+        return self.lines
+
+    def texts(self) -> List[str]:
+        return [i.text for i in self.lines]
+
+    def find(self, keyword: str) -> Optional[OCRLine]:
+        """
+        找包含关键字的一行
+        """
+
+        for line in self.lines:
+
+            if keyword in line.text:
+                return line
+
+        return None
+
+    def find_all(self, keyword: str) -> List[OCRLine]:
+        """
+        找所有包含关键字的行
+        """
+
+        result = []
+
+        for line in self.lines:
+
+            if keyword in line.text:
+                result.append(line)
+
+        return result
+
+    def same_row(
+            self,
+            line: OCRLine,
+            tolerance: int = 20
+    ) -> List[OCRLine]:
+        """
+        找同一行
+        """
+
+        result = []
+
+        for item in self.lines:
+
+            if abs(
+                    item.center_y - line.center_y
+            ) <= tolerance:
+
+                result.append(item)
+
+        result.sort(
+            key=lambda x: x.left
+        )
+
+        return result
+
+    def right_of(
+            self,
+            line: OCRLine,
+            tolerance: int = 20
+    ) -> List[OCRLine]:
+        """
+        找右边内容
+        """
+
+        result = []
+
+        for item in self.lines:
+
+            if item.left <= line.right:
+                continue
+
+            if abs(
+                    item.center_y - line.center_y
+            ) <= tolerance:
+
+                result.append(item)
+
+        result.sort(
+            key=lambda x: x.left
+        )
+
+        return result
+
+    def left_of(
+            self,
+            line: OCRLine,
+            tolerance: int = 20
+    ) -> List[OCRLine]:
+        """
+        找左边内容
+        """
+
+        result = []
+
+        for item in self.lines:
+
+            if item.right >= line.left:
+                continue
+
+            if abs(
+                    item.center_y - line.center_y
+            ) <= tolerance:
+
+                result.append(item)
+
+        result.sort(
+            key=lambda x: x.left
+        )
+
+        return result
+
+    def below(
+            self,
+            line: OCRLine
+    ) -> List[OCRLine]:
+        """
+        找下面所有行
+        """
+
+        result = []
+
+        for item in self.lines:
+
+            if item.top > line.bottom:
+                result.append(item)
+
+        result.sort(
+            key=lambda x: x.top
+        )
+
+        return result
+
+    def above(
+            self,
+            line: OCRLine
+    ) -> List[OCRLine]:
+        """
+        找上面所有行
+        """
+
+        result = []
+
+        for item in self.lines:
+
+            if item.bottom < line.top:
+                result.append(item)
+
+        result.sort(
+            key=lambda x: x.top
+        )
+
+        return result
+
+    def nearest_below(
+            self,
+            line: OCRLine
+    ) -> Optional[OCRLine]:
+        """
+        最近的下一行
+        """
+
+        items = self.below(line)
+
+        if len(items) == 0:
+            return None
+
+        return items[0]
+
+    def nearest_right(
+            self,
+            line: OCRLine
+    ) -> Optional[OCRLine]:
+        """
+        最近右边
+        """
+
+        items = self.right_of(line)
+
+        if len(items) == 0:
+            return None
+
+        return items[0]
+
+
+def build_layout(ocr_result) -> Layout:
+    """
+    PaddleX OCR
+        ↓
+    Layout
+    """
+
+    texts = ocr_result["texts"]
+
+    boxes = ocr_result["boxes"]
+
+    scores = ocr_result["scores"]
+
+    lines = []
+
+    for text, box, score in zip(
+            texts,
+            boxes,
+            scores
+    ):
+
+        lines.append(
+
+            OCRLine(
+
+                text=text,
+
+                left=box[0],
+
+                top=box[1],
+
+                right=box[2],
+
+                bottom=box[3],
+
+                score=score
+
+            )
+
+        )
+
+    return Layout(lines)

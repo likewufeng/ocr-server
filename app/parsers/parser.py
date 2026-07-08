@@ -1,7 +1,7 @@
 '''
 Author: WuFeng <763467339@qq.com>
 Date: 2026-07-08 17:14:33
-LastEditTime: 2026-07-08 17:14:51
+LastEditTime: 2026-07-08 21:09:00
 LastEditors: WuFeng <763467339@qq.com>
 Description: 
 FilePath: \ocr-server\app\parsers\parser.py
@@ -11,22 +11,45 @@ from app.parsers.business import BusinessParser
 from app.parsers.detector import detect_type
 from app.parsers.id_back import IDBackParser
 from app.parsers.id_front import IDFrontParser
+from app.utils.layout import build_layout
 
 
-def parse(texts):
+class DocumentParser:
 
-    tp = detect_type(texts)
+    def __init__(self):
 
-    if tp == "id_front":
-        return IDFrontParser().parse(texts)
+        self.id_front_parser = IDFrontParser()
+        self.id_back_parser = IDBackParser()
+        self.business_parser = BusinessParser()
 
-    if tp == "id_back":
-        return IDBackParser().parse(texts)
+    def parse(self, ocr_result: dict):
 
-    if tp == "business_license":
-        return BusinessParser().parse(texts)
+        layout = build_layout(ocr_result)
 
-    return {
-        "type": "unknown",
-        "texts": texts
-    }
+        doc_type = detect_type(layout)
+
+        if doc_type == "id_front":
+            return self.id_front_parser.parse(layout)
+
+        if doc_type == "id_back":
+            return self.id_back_parser.parse(layout)
+
+        if doc_type == "business_license":
+            return self.business_parser.parse(layout)
+
+        return {
+            "type": "unknown",
+            "ocr": {
+                "texts": layout.texts()
+            }
+        }
+
+
+document_parser = DocumentParser()
+
+
+def parse(ocr_result: dict):
+    """
+    对外统一入口
+    """
+    return document_parser.parse(ocr_result)
