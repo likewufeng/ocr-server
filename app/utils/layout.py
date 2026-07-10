@@ -222,19 +222,29 @@ class Layout:
         return result
 
     def nearest_below(
-            self,
-            line: OCRLine
+        self,
+        line: OCRLine
     ) -> Optional[OCRLine]:
-        """
-        最近的下一行
-        """
 
-        items = self.below(line)
+        items = []
 
-        if len(items) == 0:
+        for item in self.lines:
+
+            if item.top <= line.bottom:
+                continue
+
+            items.append(item)
+
+        if not items:
             return None
 
-        return items[0]
+        return min(
+            items,
+            key=lambda x: (
+                x.top - line.bottom,
+                abs(x.left - line.left)
+            )
+        )
 
     # def nearest_right(
     #         self,
@@ -273,7 +283,7 @@ class Layout:
 
 def build_layout(
     ocr_result,
-    min_score: float = 0.5
+    min_score: float = 0.2
 ) -> Layout:
     # logger.info("🚀 ~ build_layout ~ ocr_result: {}", json.dumps(ocr_result, indent=2, ensure_ascii=False))
     """
