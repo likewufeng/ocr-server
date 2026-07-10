@@ -1,12 +1,4 @@
-r'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-08 17:12:48
-LastEditTime: 2026-07-08 21:10:08
-LastEditors: WuFeng <763467339@qq.com>
-Description: 证件类型器 这个文件负责根据图片文字特征，自动告诉程序这是身份证还是营业执照。
-FilePath: \ocr-server\app\parsers\detector.py
-Copyright 版权声明
-'''
+# Description: 证件类型器 这个文件负责根据图片文字特征，自动告诉程序这是身份证还是营业执照。
 from app.utils.layout import Layout
 
 class DocumentDetector:

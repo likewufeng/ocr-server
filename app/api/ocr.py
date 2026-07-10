@@ -1,12 +1,3 @@
-r'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-08 17:15:05
-LastEditTime: 2026-07-08 20:50:29
-LastEditors: WuFeng <763467339@qq.com>
-Description: OCR API
-FilePath: \ocr-server\app\api\ocr.py
-Copyright 版权声明
-'''
 import shutil
 import uuid
 

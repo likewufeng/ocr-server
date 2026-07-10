@@ -1,28 +1,19 @@
-'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-09 10:50:10
-LastEditTime: 2026-07-09 10:57:03
-LastEditors: WuFeng <763467339@qq.com>
-Description: 
-FilePath: \ocr-server\app\parsers\matcher.py
-Copyright 版权声明
-'''
-r'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-09 10:50:10
-LastEditTime: 2026-07-09 10:57:03
-LastEditors: WuFeng <763467339@qq.com>
-Description: 
-    Matcher 确实有一些方法（例如 find()、merge()）和 Layout 重复了。如果继续这样设计，后面维护会比较混乱。这一点我建议调整。
+# -*- coding: utf-8 -*-
+#Author: WuFeng <763467339@qq.com>
+#Date: 2026-07-09 10:50:10
+#LastEditTime: 2026-07-10 11:15:00
+#LastEditors: WuFeng <763467339@qq.com>
+#Description: 
+    # Matcher 确实有一些方法（例如 find()、merge()）和 Layout 重复了。如果继续这样设计，后面维护会比较混乱。这一点我建议调整。
 
-    我建议明确职责划分：
+    # 我建议明确职责划分：
 
-    layout.py：负责"空间关系"
+    # layout.py：负责"空间关系"
 
-    它只关心 OCR 的几何布局，不关心业务。
-FilePath: \ocr-server\app\parsers\matcher.py
-Copyright 版权声明
-'''
+    # 它只关心 OCR 的几何布局，不关心业务。
+#FilePath: /ocr-server/app/parsers/matcher.py
+#Copyright 版权声明
+#
 import re
 
 

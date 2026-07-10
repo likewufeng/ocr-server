@@ -1,12 +1,3 @@
-r'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-09 10:20:58
-LastEditTime: 2026-07-09 11:22:52
-LastEditors: WuFeng <763467339@qq.com>
-Description: 
-FilePath: \ocr-server\app\parsers\parser.py
-Copyright 版权声明
-'''
 from app.utils.layout import Layout
 from app.parsers.detector import DocumentDetector
 from app.parsers.id_front import IDFrontParser

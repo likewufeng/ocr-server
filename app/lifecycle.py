@@ -1,12 +1,3 @@
-'''
-Author: WuFeng <763467339@qq.com>
-Date: 2026-07-08 18:03:10
-LastEditTime: 2026-07-08 18:03:30
-LastEditors: WuFeng <763467339@qq.com>
-Description: 
-FilePath: \ocr-server\app\lifecycle.py
-Copyright 版权声明
-'''
 from contextlib import asynccontextmanager
 
 from app.services.ocr_service import ocr_service
