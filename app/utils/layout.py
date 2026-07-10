@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from app.utils.logger import logger
+import json
+
 
 @dataclass
 class OCRLine:
@@ -229,11 +232,19 @@ class Layout:
         return items[0]
 
 
-def build_layout(ocr_result) -> Layout:
+def build_layout(
+    ocr_result,
+    min_score: float = 0.5
+) -> Layout:
+    # logger.info("🚀 ~ build_layout ~ ocr_result: {}", json.dumps(ocr_result, indent=2, ensure_ascii=False))
     """
     PaddleX OCR
         ↓
     Layout
+
+    自动过滤：
+    - 空文本
+    - 低置信度
     """
 
     texts = ocr_result["texts"]
@@ -250,21 +261,36 @@ def build_layout(ocr_result) -> Layout:
             scores
     ):
 
+        # ---------- 清洗 ----------
+
+        if text is None:
+            continue
+
+        text = str(text).strip()
+
+        if text == "":
+            continue
+
+        if score < min_score:
+            continue
+
+        # ---------- 构建 OCRLine ----------
+
         lines.append(
 
             OCRLine(
 
                 text=text,
 
-                left=box[0],
+                left=int(box[0]),
 
-                top=box[1],
+                top=int(box[1]),
 
-                right=box[2],
+                right=int(box[2]),
 
-                bottom=box[3],
+                bottom=int(box[3]),
 
-                score=score
+                score=float(score)
 
             )
 
