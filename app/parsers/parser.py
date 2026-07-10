@@ -1,55 +1,47 @@
-'''
+r'''
 Author: WuFeng <763467339@qq.com>
-Date: 2026-07-08 17:14:33
-LastEditTime: 2026-07-08 21:09:00
+Date: 2026-07-09 10:20:58
+LastEditTime: 2026-07-09 11:22:52
 LastEditors: WuFeng <763467339@qq.com>
 Description: 
 FilePath: \ocr-server\app\parsers\parser.py
 Copyright 版权声明
 '''
-from app.parsers.business import BusinessParser
-from app.parsers.detector import detect_type
-from app.parsers.id_back import IDBackParser
+from app.utils.layout import Layout
+from app.parsers.detector import DocumentDetector
 from app.parsers.id_front import IDFrontParser
-from app.utils.layout import build_layout
+from app.parsers.id_back import IDBackParser
+from app.parsers.business import BusinessParser
 
-
-class DocumentParser:
-
+class OCRParser:
     def __init__(self):
-
-        self.id_front_parser = IDFrontParser()
-        self.id_back_parser = IDBackParser()
-        self.business_parser = BusinessParser()
-
-    def parse(self, ocr_result: dict):
-
-        layout = build_layout(ocr_result)
-
-        doc_type = detect_type(layout)
-
-        if doc_type == "id_front":
-            return self.id_front_parser.parse(layout)
-
-        if doc_type == "id_back":
-            return self.id_back_parser.parse(layout)
-
-        if doc_type == "business_license":
-            return self.business_parser.parse(layout)
-
-        return {
-            "type": "unknown",
-            "ocr": {
-                "texts": layout.texts()
-            }
+        self.detector = DocumentDetector()
+        self.parsers = {
+            "id_front": IDFrontParser(),
+            "id_back": IDBackParser(),
+            "business_license": BusinessParser()
         }
 
-
-document_parser = DocumentParser()
-
-
-def parse(ocr_result: dict):
-    """
-    对外统一入口
-    """
-    return document_parser.parse(ocr_result)
+    def parse(self, layout: Layout):
+        # 1. 自动检测类型
+        doc_type = self.detector.detect(layout)
+        
+        # 2. 选择对应的解析器
+        parser = self.parsers.get(doc_type)
+        
+        if not parser:
+            return {
+                "type": "unknown",
+                "error": "未能识别证件类型",
+                "raw_texts": layout.texts()
+            }
+        
+        # 3. 执行解析
+        try:
+            result = parser.parse(layout)
+            return result
+        except Exception as e:
+            return {
+                "type": doc_type,
+                "error": f"解析失败: {str(e)}"
+            }
