@@ -63,6 +63,26 @@ class Layout:
                 return line
 
         return None
+    
+    def find_any(self, *keywords) -> Optional[OCRLine]:
+        """
+        查找任意关键字，返回第一个匹配项
+
+        layout.find_any(
+            "名称",
+            "名 称",
+            "称"
+        )
+        """
+
+        for keyword in keywords:
+
+            line = self.find(keyword)
+
+            if line:
+                return line
+
+        return None
 
     def find_all(self, keyword: str) -> List[OCRLine]:
         """
@@ -216,20 +236,39 @@ class Layout:
 
         return items[0]
 
+    # def nearest_right(
+    #         self,
+    #         line: OCRLine
+    # ) -> Optional[OCRLine]:
+    #     """
+    #     最近右边
+    #     """
+
+    #     items = self.right_of(line)
+
+    #     if len(items) == 0:
+    #         return None
+
+    #     return items[0]
+    
     def nearest_right(
-            self,
-            line: OCRLine
+        self,
+        line: OCRLine,
+        tolerance: int = None
     ) -> Optional[OCRLine]:
         """
-        最近右边
+        返回同行最近的右侧 OCRLine
         """
 
-        items = self.right_of(line)
+        items = self.right_of(line, tolerance)
 
-        if len(items) == 0:
+        if not items:
             return None
 
-        return items[0]
+        return min(
+            items,
+            key=lambda x: x.left
+        )
 
 
 def build_layout(
