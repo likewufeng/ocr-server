@@ -1,0 +1,29 @@
+# 虚拟环境
+venv/
+env/
+.venv/
+__pycache__/
+
+# 编译文件
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志
+*.log
+
+# 你的测试文件
+WuFeng1LA.txt
+
+# 上传的文件
+uploads/
+
+# 日志
+logs/

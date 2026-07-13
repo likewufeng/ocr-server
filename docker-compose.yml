@@ -1,10 +1,10 @@
 services:
 
-  ocr:
+  paddle-ocr:
 
     build: .
-
-    container_name: ocr-server
+    
+    container_name: paddle-ocr-server
 
     ports:
       - "8000:8000"
