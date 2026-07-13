@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+#Author: WuFeng <763467339@qq.com>
+#Date: 2026-07-09 10:20:58
+#LastEditTime: 2026-07-13 12:26:56
+#LastEditors: WuFeng <763467339@qq.com>
+#Description: 身份证正面解析器
+#FilePath: /ocr-server/app/parsers/id_front.py
+#Copyright 版权声明
+#
 import re
 
 from app.utils.layout import Layout
