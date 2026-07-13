@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #Author: WuFeng <763467339@qq.com>
 #Date: 2026-07-13 11:03:48
-#LastEditTime: 2026-07-13 15:15:09
+#LastEditTime: 2026-07-13 12:13:43
 #LastEditors: WuFeng <763467339@qq.com>
 #Description: 启动脚本 - 封装 Uvicorn 启动命令
 # # 方式1：直接运行
@@ -29,16 +29,19 @@ def main():
     port = os.getenv("PORT", "8000")
     
     # Windows 兼容性：强制使用 polling 模式
-    os.environ["WATCHFILES_FORCE_POLLING"] = "true"s
+    os.environ["WATCHFILES_FORCE_POLLING"] = "true"
+    
+    # 获取当前工作目录，支持跨平台
+    current_dir = os.getcwd()
     
     # 构建启动命令
     cmd = [
         sys.executable, "-m", "uvicorn",
-        "app.main:app"
+        "app.main:app",
         "--host", "0.0.0.0",
         "--port", port,
         "--reload",
-        "--reload-dir", "/home/user/ocr-server",
+        "--reload-dir", current_dir,
         "--reload-include", "*.py",
     ]
     
