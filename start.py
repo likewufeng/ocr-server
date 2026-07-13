@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #Author: WuFeng <763467339@qq.com>
 #Date: 2026-07-13 11:03:48
-#LastEditTime: 2026-07-13 12:13:43
+#LastEditTime: 2026-07-13 15:15:09
 #LastEditors: WuFeng <763467339@qq.com>
 #Description: 启动脚本 - 封装 Uvicorn 启动命令
 # # 方式1：直接运行
@@ -25,20 +25,28 @@ import sys
 import os
 
 def main():
-    # 获取端口配置，默认8001
+    # 获取端口配置，默认8000
     port = os.getenv("PORT", "8000")
+    
+    # Windows 兼容性：强制使用 polling 模式
+    os.environ["WATCHFILES_FORCE_POLLING"] = "true"s
     
     # 构建启动命令
     cmd = [
         sys.executable, "-m", "uvicorn",
-        "app.main:app",
+        "app.main:app"
         "--host", "0.0.0.0",
         "--port", port,
-        "--reload"
+        "--reload",
+        "--reload-dir", "/home/user/ocr-server",
+        "--reload-include", "*.py",
     ]
     
     print(f"🚀 启动 OCR Server... (端口: {port})")
     print(f"命令: {' '.join(cmd)}")
+    print("=" * 50)
+    print("💡 热重载已启用：修改 .py 文件后自动重启")
+    print("💡 Windows 兼容模式：已启用 polling")
     print("=" * 50)
     
     # 执行命令
