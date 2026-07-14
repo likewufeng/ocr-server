@@ -99,6 +99,7 @@ class OCRService:
             'B': '8', 'b': '8',  # 字母 B/b → 数字 8
             'S': '5', 's': '5',  # 字母 S/s → 数字 5
             'Z': '2', 'z': '2',  # 字母 Z/z → 数字 2
+            '淹': '渑',  # 常见汉字误识别：淹→渑
         }
         
         # 符号修正
@@ -115,9 +116,9 @@ class OCRService:
                 processed.append("")
                 continue
             
-            # 策略1：单个字符进行字符修正
-            if len(text) == 1 and text in single_char_corrections:
-                text = single_char_corrections[text]
+            # 策略1：修正所有常见误识别字符（包括多字符串中的）
+            for wrong, right in single_char_corrections.items():
+                text = text.replace(wrong, right)
             
             # 策略2：修正符号
             for wrong, right in symbol_corrections.items():

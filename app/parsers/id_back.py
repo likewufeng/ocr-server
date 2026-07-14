@@ -59,15 +59,20 @@ class IDBackParser:
         valid_line = layout.find("有效期限")
 
         if valid_line:
+            # 统一的日期模式：支持多种格式
+            # 格式1: 2019.06.24-2039.06.24
+            # 格式2: 2019-06-24-2039-06-24
+            # 格式3: 20190624-20390624
+            # 格式4: 2019.06.24 至 2039.06.24
+            # 格式5: 20190624 至 20390624
+            date_pattern = r"\d{4}[.\-]?\d{2}[.\-]?\d{2}\s*[-—至]\s*\d{4}[.\-]?\d{2}[.\-]?\d{2}"
 
-            m = re.search(
-                r"\d{4}[.\-]\d{2}[.\-]\d{2}\s*[-—至]\s*\d{4}[.\-]\d{2}[.\-]\d{2}",
-                valid_line.text
-            )
+            m = re.search(date_pattern, valid_line.text)
 
             if m:
-
-                data["valid_date"] = m.group()
+                # 标准化日期格式：统一为 YYYY.MM.DD-YYYY.MM.DD
+                raw_date = m.group()
+                data["valid_date"] = self._normalize_date(raw_date)
 
             else:
 
@@ -79,13 +84,11 @@ class IDBackParser:
                     if i.text.strip()
                 )
 
-                m = re.search(
-                    r"\d{4}[.\-]\d{2}[.\-]\d{2}\s*[-—至]\s*\d{4}[.\-]\d{2}[.\-]\d{2}",
-                    text
-                )
+                m = re.search(date_pattern, text)
 
                 if m:
-                    data["valid_date"] = m.group()
+                    raw_date = m.group()
+                    data["valid_date"] = self._normalize_date(raw_date)
 
                 else:
 
@@ -94,13 +97,43 @@ class IDBackParser:
                         if not item.text.strip():
                             continue
 
-                        m = re.search(
-                            r"\d{4}[.\-]\d{2}[.\-]\d{2}\s*[-—至]\s*\d{4}[.\-]\d{2}[.\-]\d{2}",
-                            item.text
-                        )
+                        m = re.search(date_pattern, item.text)
 
                         if m:
-                            data["valid_date"] = m.group()
+                            raw_date = m.group()
+                            data["valid_date"] = self._normalize_date(raw_date)
                             break
 
         return data
+
+    def _normalize_date(self, date_str: str) -> str:
+        """
+        标准化日期格式
+        输入: 20190624-2039.06.24, 2019.06.24-2039.06.24, 2019-06-24-2039-06-24 等
+        输出: 2019.06.24-2039.06.24
+        """
+        # 将连续的数字插入分隔符
+        def format_date_part(part: str) -> str:
+            # 如果已经有分隔符，直接返回
+            if '.' in part or '-' in part:
+                return part
+            # 格式化为 YYYY.MM.DD
+            if len(part) == 8:  # YYYYMMDD
+                return f"{part[:4]}.{part[4:6]}.{part[6:8]}"
+            return part
+        
+        # 分割日期范围
+        if '至' in date_str:
+            separator = '至'
+        elif '-' in date_str:
+            separator = '-'
+        else:
+            separator = None
+        
+        if separator:
+            start, end = date_str.split(separator, 1)
+            start = format_date_part(start.strip())
+            end = format_date_part(end.strip())
+            return f"{start}-{end}"
+        
+        return date_str
