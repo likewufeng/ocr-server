@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #Author: WuFeng <763467339@qq.com>
 #Date: 2026-07-13 17:04:40
-#LastEditTime: 2026-07-13 17:05:54
+#LastEditTime: 2026-07-14 09:30:16
 #LastEditors: WuFeng <763467339@qq.com>
 #Description: 授权书接口
 #FilePath: /ocr-server/app/api/authorization_letter.py
@@ -94,3 +94,68 @@ async def parse_authorization_letter_text(text: str):
         return ApiResponse.success(formatted_result)
     except Exception as e:
         return ApiResponse.error(f"解析失败: {str(e)}")
+
+
+@router.post("/letter/parse-raw")
+async def parse_authorization_letter_raw(file: UploadFile = File(...)):
+    """
+    解析授权委托书 PDF 文件 - 返回原始信息
+    
+    接受 PDF 文件上传，返回原始内容，包括：
+    - 原始文本（每页文本）
+    - 页数
+    - 文件大小
+    - 文件名
+    
+    不进行结构化解析，直接返回 PDF 内容。
+    """
+    import os
+    from PyPDF2 import PdfReader
+    
+    # 验证文件类型
+    suffix = file.filename.split(".")[-1].lower()
+    if suffix != "pdf":
+        raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
+    
+    # 读取文件内容
+    file_content = await file.read()
+    file_size = len(file_content)
+    
+    # 保存临时文件用于读取
+    with tempfile.NamedTemporaryFile(suffix=f".{suffix}", delete=False) as tmp:
+        tmp.write(file_content)
+        tmp_path = tmp.name
+    
+    try:
+        # 读取 PDF 文本内容
+        reader = PdfReader(tmp_path)
+        
+        raw_data = {
+            "filename": file.filename,
+            "file_size": file_size,
+            "pages_count": len(reader.pages),
+            "pages": [],
+            "raw_text": ""
+        }
+        
+        # 提取每页文本
+        for i, page in enumerate(reader.pages):
+            text = page.extract_text()
+            raw_data["pages"].append({
+                "page_number": i + 1,
+                "text": text if text else "",
+                "char_count": len(text) if text else 0
+            })
+            raw_data["raw_text"] += text + "\n" if text else ""
+        
+        return ApiResponse.success(raw_data)
+        
+    except Exception as e:
+        return ApiResponse.error(f"读取 PDF 失败: {str(e)}")
+    finally:
+        # 清理临时文件
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except:
+                pass
