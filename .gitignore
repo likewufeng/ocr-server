@@ -18,13 +18,11 @@ __pycache__/
 
 # 日志
 *.log
+# logs/
+# logs/ocr.log
 
 # 你的测试文件
 WuFeng1LA.txt
 
 # 上传的文件
 uploads/
-
-# 日志
-logs/
-logs/ocr.log
