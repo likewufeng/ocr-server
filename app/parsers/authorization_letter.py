@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #Author: WuFeng <763467339@qq.com>
 #Date: 2026-07-13 17:04:48
-#LastEditTime: 2026-07-13 17:06:11
+#LastEditTime: 2026-07-14 11:18:41
 #LastEditors: WuFeng <763467339@qq.com>
 #Description: 授权书解析器
 #FilePath: /ocr-server/app/parsers/authorization_letter.py

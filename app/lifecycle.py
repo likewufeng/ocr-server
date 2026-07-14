@@ -9,7 +9,7 @@ from app.utils.logger import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时初始化 PaddleX（只加载一次）
+    # 启动时初始化 PaddleX（只加载基础 pipeline）
     logger.info("正在初始化 PaddleX OCR 模型...")
     
     # 使用线程异步初始化模型，避免阻塞 FastAPI 启动
@@ -17,6 +17,7 @@ async def lifespan(app: FastAPI):
         try:
             ocr_service.initialize()
             logger.info("PaddleX OCR 模型初始化完成！")
+            # 布局分析 pipeline 改为延迟初始化（首次调用时自动加载）
         except Exception as e:
             logger.error(f"模型初始化失败: {e}")
     

@@ -13,6 +13,7 @@ class OCRService:
 
     def __init__(self):
         self.pipeline = None
+        self.layout_pipeline = None
 
     def initialize(self):
         if self.pipeline is not None:
@@ -28,6 +29,28 @@ class OCRService:
         )
 
         logger.info("PaddleX OCR Pipeline Ready.")
+
+    def initialize_layout_pipeline(self):
+        """初始化布局分析 pipeline"""
+        if self.layout_pipeline is not None:
+            return
+
+        logger.info("Initializing PaddleX OCR Layout Pipeline...")
+
+        # 布局分析 pipeline 配置
+        self.layout_pipeline = create_pipeline(
+            "OCR",
+            use_layout_detection=True,    # 启用布局检测
+            use_seal_recognition=True,      # 启用印章识别
+            use_doc_preprocessor=False,     # 不使用文档预处理器
+            return_layout_polygon_points=True,  # 返回多边形点
+            format_block_content=True,     # 格式化块内容
+            merge_layout_blocks=True,      # 合并布局块
+            det_db_unclip_ratio=2.0,       # 检测框扩展比例
+            det_db_score_mode="slow",     # 更精确的分数计算模式
+        )
+
+        logger.info("PaddleX OCR Layout Pipeline Ready.")
 
     def preprocess_image(self, image_path: str) -> str:
         """
@@ -120,7 +143,8 @@ class OCRService:
             识别结果字典，包含 texts, scores, boxes, polys, angle
         """
         if self.pipeline is None:
-            raise RuntimeError("OCR pipeline is not initialized.")
+            # 延迟初始化：如果 pipeline 未初始化，自动初始化
+            self.initialize()
 
         # 图片预处理
         temp_path = None
@@ -170,6 +194,50 @@ class OCRService:
                     os.remove(temp_path)
                 except Exception as e:
                     logger.warning(f"清理临时文件失败: {e}")
+
+
+    def recognize_with_layout(self, image_path: str) -> list[dict[str, Any]]:
+        """
+        布局分析 OCR 识别接口
+        
+        使用布局分析 pipeline 处理文档，返回结构化结果
+        
+        Args:
+            image_path: 图片或 PDF 文件路径
+        
+        Returns:
+            布局分析结果列表，每个元素代表一页的分析结果
+        """
+        if self.layout_pipeline is None:
+            self.initialize_layout_pipeline()
+
+        def convert_to_serializable(obj):
+            """递归将 numpy 数组和其他非序列化对象转换为可序列化格式"""
+            if isinstance(obj, dict):
+                return {k: convert_to_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_serializable(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return tuple(convert_to_serializable(item) for item in obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            else:
+                return obj
+
+        # 执行布局分析
+        layout_results = []
+        for result in self.layout_pipeline.predict(image_path):
+            # 转换为可序列化格式
+            serializable_result = convert_to_serializable(result)
+            layout_results.append(serializable_result)
+
+        return layout_results
 
 
 ocr_service = OCRService()
