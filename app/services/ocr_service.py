@@ -83,34 +83,43 @@ class OCRService:
 
         return temp_path
 
+    @staticmethod
+    def _looks_like_alphanumeric_code(text: str) -> bool:
+        """
+        判断文本是否像编码类字符串（如统一社会信用代码、身份证号等）。
+        这类文本不应做字母→数字的替换。
+        """
+        # 连续 15+ 位的字母数字混合串
+        if re.search(r'[0-9A-Za-z]{15,}', text):
+            return True
+        return False
+
     def postprocess_texts(self, texts: list[str]) -> list[str]:
         """
         文本后处理：修正常见 OCR 错误
         
         修正策略：
-        1. 对单个字符进行常见字符修正（OCR 最容易出错的地方）
-        2. 修正中文符号为英文符号
-        3. 清理空格和引号
+        1. 清理空格和引号（安全操作，适用于所有文本）
+        2. 修正部分中文标点为英文标点（保留中文冒号、括号，营业执照标签常用）
+        3. 仅对中文文本做汉字误识别修正
+        
+        重要：不再对字母做 字母→数字 的全局替换。
+        因为统一社会信用代码等编码中包含合法字母（B, L, M, N 等），
+        盲目替换（如 B→8, S→5）会破坏编码。
+        编码级的修正改由各 Parser 内部按需处理。
         """
-        # 单个字符修正：OCR 最容易将数字误识别为字母
-        single_char_corrections = {
-            'O': '0', 'o': '0',  # 字母 O/o → 数字 0
-            'l': '1', 'I': '1', '|': '1',  # 字母 l/I/| → 数字 1
-            'B': '8', 'b': '8',  # 字母 B/b → 数字 8
-            'S': '5', 's': '5',  # 字母 S/s → 数字 5
-            'Z': '2', 'z': '2',  # 字母 Z/z → 数字 2
-            '淹': '渑',  # 常见汉字误识别：淹→渑（身份证）
-            '圆': '元',  # 常见汉字误识别：圆→元（营业执照金额）
-            '斤': '郑',  # 常见汉字误识别：斤→郑
+        # 汉字误识别修正（仅在中文上下文安全使用）
+        han_corrections = {
+            '淹': '渑',  # 常见汉字误识别：淹→渑（身份证地址）
             '祭': '商',  # 常见汉字误识别：祭→商
         }
-        
-        # 符号修正
+
+        # 符号修正（保留 '：' '（' '）' '、' '·'，中文文档标签常用）
         symbol_corrections = {
-            '：': ':', '；': ';', '。': '.',
-            '（': '(', '）': ')', '【': '[', '】': ']',
-            '「': '(', '」': ')', '、': ',', '·': '.',
-            '‘': "'", '’': "'", '“': '"', '”': '"',
+            '；': ';', '。': '.',
+            '【': '[', '】': ']',
+            '「': '(', '」': ')',
+            '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"',
         }
 
         processed = []
@@ -118,18 +127,19 @@ class OCRService:
             if not text or not isinstance(text, str):
                 processed.append("")
                 continue
-            
-            # 策略1：修正所有常见误识别字符（包括多字符串中的）
-            for wrong, right in single_char_corrections.items():
-                text = text.replace(wrong, right)
-            
+
+            # 策略1：清理多余空格和引号
+            text = re.sub(r'\s+', ' ', text).strip()
+            text = text.strip('"').strip("'").strip()
+
             # 策略2：修正符号
             for wrong, right in symbol_corrections.items():
                 text = text.replace(wrong, right)
 
-            # 策略3：清理空格和引号
-            text = re.sub(r'\s+', ' ', text).strip()
-            text = text.strip('"').strip("'").strip()
+            # 策略3：仅对非编码类文本做汉字修正
+            if not self._looks_like_alphanumeric_code(text):
+                for wrong, right in han_corrections.items():
+                    text = text.replace(wrong, right)
 
             processed.append(text)
 
