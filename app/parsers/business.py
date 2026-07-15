@@ -31,155 +31,140 @@ class BusinessParser:
             data["credit_code"] = m.group()
 
         # ----------------------------------------------------
-        # 通用取值
+        # 辅助函数
         # ----------------------------------------------------
 
-        def value(*keywords):
-
-            label = layout.find_any(*keywords)
-
-            if not label:
+        def get_right_value(label: str, tolerance: int = 200) -> str:
+            """获取标签右侧的文本值"""
+            label_line = layout.find(label)
+            if not label_line:
                 return ""
+            
+            # 标签和值在同一行
+            if label in label_line.text:
+                v = label_line.text.replace(label, "").strip()
+                if v:
+                    return v
+            
+            # 查找右侧值
+            right = layout.nearest_right(label_line, tolerance=tolerance)
+            if right:
+                return right.text.strip()
+            
+            return ""
 
-            # 标签和值在同一个 OCRLine
-            for kw in keywords:
-
-                if kw in label.text:
-
-                    v = label.text.replace(kw, "").strip()
-
-                    if v:
-                        return v
-
-            # 同行最近右侧
-            right = layout.nearest_right(
-                label,
-                tolerance=40
-            )
-
-            if not right:
-                return ""
-
-            # OCR 把标签拆成：
-            #
-            # 名
-            # 称
-            # XXX
-            #
-            if right.text in {"称", "型", "所"}:
-
-                second = layout.nearest_right(
-                    right,
-                    tolerance=40
-                )
-
-                if second:
-                    return second.text.strip()
-
-            return right.text.strip()
+        def get_right_value_any(*labels: str, tolerance: int = 200) -> str:
+            """获取任意标签右侧的文本值"""
+            for label in labels:
+                result = get_right_value(label, tolerance)
+                if result:
+                    return result
+            return ""
 
         # ----------------------------------------------------
         # 名称
         # ----------------------------------------------------
 
-        data["name"] = value(
-            "名称",
-            "名 称",
-            "名"
-        )
+        name_candidates = []
+        
+        name_text = get_right_value("名称", tolerance=200)
+        if name_text:
+            name_candidates.append(name_text)
+        
+        name_text = get_right_value("名 称", tolerance=200)
+        if name_text:
+            name_candidates.append(name_text)
+        
+        # 处理拆分："名" + "称..."
+        name_label = layout.find("名")
+        if name_label:
+            right = layout.nearest_right(name_label, tolerance=200)
+            if right and right.text.startswith("称"):
+                name_candidates.append(right.text[1:].strip())
+            elif right:
+                name_candidates.append(right.text.strip())
+        
+        if name_candidates:
+            data["name"] = max(name_candidates, key=len)
 
         # ----------------------------------------------------
         # 类型
         # ----------------------------------------------------
 
-        data["type_name"] = value(
-            "类型",
-            "类 型",
-            "类"
-        )
+        type_candidates = []
+        
+        type_text = get_right_value("类型", tolerance=200)
+        if type_text:
+            type_candidates.append(type_text)
+        
+        type_text = get_right_value("类 型", tolerance=200)
+        if type_text:
+            type_candidates.append(type_text)
+        
+        # 处理拆分："类" + "型..."
+        type_label = layout.find("类")
+        if type_label:
+            right = layout.nearest_right(type_label, tolerance=200)
+            if right and right.text.startswith("型"):
+                type_candidates.append(right.text[1:].strip())
+            elif right:
+                type_candidates.append(right.text.strip())
+        
+        if type_candidates:
+            data["type_name"] = max(type_candidates, key=len)
 
         # ----------------------------------------------------
-        # 法定代表人
+        # 法定代表人（直接使用 nearest_right，最宽松验证）
         # ----------------------------------------------------
 
-        data["legal_person"] = value(
-            "法定代表人",
-            "负责人",
-            "经营者"
-        )
+        legal_label = layout.find_any("法定代表人", "负责人")
+        if legal_label:
+            # 尝试右侧
+            right = layout.nearest_right(legal_label, tolerance=250)
+            if right and right.text:
+                # 最宽松验证：仅检查长度和是否有汉字
+                if 2 <= len(right.text) <= 15 and any('\u4e00' <= c <= '\u9fff' for c in right.text):
+                    data["legal_person"] = right.text.strip()
+            
+            # 如果右侧没找到，尝试下方
+            if not data["legal_person"]:
+                below = layout.nearest_below(legal_label)
+                if below and below.text:
+                    if 2 <= len(below.text) <= 15 and any('\u4e00' <= c <= '\u9fff' for c in below.text):
+                        data["legal_person"] = below.text.strip()
 
         # ----------------------------------------------------
         # 注册资本
         # ----------------------------------------------------
 
-        data["capital"] = value(
-            "注册资本"
-        )
+        data["capital"] = get_right_value_any("注册资本", tolerance=200)
 
         # ----------------------------------------------------
         # 成立日期
         # ----------------------------------------------------
 
-        data["establish_date"] = value(
-            "成立日期"
-        )
+        data["establish_date"] = get_right_value_any("成立日期", tolerance=200)
 
         # ----------------------------------------------------
-        # 地址
+        # 地址（收集所有可能的地址文本块）
         # ----------------------------------------------------
 
-        addr_line = layout.find_any(
-            "住所",
-            "住 所",
-            "所"
-        )
-
-        if addr_line:
-
-            first = layout.nearest_right(
-                addr_line,
-                tolerance=40
-            )
-
-            if first:
-
-                addr_parts = [first.text]
-
-                current = first
-
-                while True:
-
-                    below = layout.nearest_below(current)
-
-                    if not below:
-                        break
-
-                    # 距离太远，不属于地址
-                    if below.top - current.bottom > 120:
-                        break
-
-                    # 遇到新的字段
-                    stop_words = [
-                        "经营范围",
-                        "注册资本",
-                        "成立日期",
-                        "法定代表人",
-                        "登记",
-                        "市场监督"
-                    ]
-
-                    if any(word in below.text for word in stop_words):
-                        break
-
-                    # 左边界变化太大，不属于地址续行
-                    if abs(below.left - first.left) > 200:
-                        break
-
-                    addr_parts.append(below.text)
-
-                    current = below
-
-                data["address"] = "".join(addr_parts)
+        addr_candidates = []
+        
+        # 策略：收集所有包含地址关键词的文本块
+        addr_keywords = ["省", "市", "区", "县", "路", "街", "号", "楼", "层", "广场", "大厦", "商场"]
+        
+        for line in layout.all():
+            if any(kw in line.text for kw in addr_keywords):
+                # 检查是否在合理的位置（排除经营范围等）
+                stop_words = ["许可项目", "经营范围", "一般项目", "登记", "市场监督"]
+                if not any(word in line.text for word in stop_words):
+                    addr_candidates.append(line.text)
+        
+        # 按 y 坐标排序并合并连续的地址块
+        if addr_candidates:
+            # 简单合并：选择最长的
+            data["address"] = max(addr_candidates, key=len)
 
         # ----------------------------------------------------
         # 经营范围

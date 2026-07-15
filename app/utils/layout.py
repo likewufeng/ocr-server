@@ -246,6 +246,34 @@ class Layout:
             )
         )
 
+    def nearest_above(
+        self,
+        line: OCRLine
+    ) -> Optional[OCRLine]:
+        """
+        返回最近的上方 OCRLine
+        """
+
+        items = []
+
+        for item in self.lines:
+
+            if item.bottom >= line.top:
+                continue
+
+            items.append(item)
+
+        if not items:
+            return None
+
+        return min(
+            items,
+            key=lambda x: (
+                line.top - x.bottom,
+                abs(x.left - line.left)
+            )
+        )
+
     # def nearest_right(
     #         self,
     #         line: OCRLine
