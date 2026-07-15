@@ -64,17 +64,14 @@ def fix_credit_code(raw: str) -> str:
         "I": "1", "O": "0", "S": "5", "V": "U", "Z": "2",
     }
 
-    # 行政区划位
     for idx in range(2, 8):
         if chars[idx].isalpha():
             chars[idx] = digit_corr.get(chars[idx], chars[idx])
 
-    # 其他位
     for idx in list(range(0, 2)) + list(range(8, 18)):
         if chars[idx] not in _USCC_CHARSET:
             chars[idx] = mixed_corr.get(chars[idx], chars[idx])
 
-    # 校验位修正
     if all(c in _USCC_CHARSET for c in chars[:17]):
         expected = _uscc_check_digit("".join(chars[:17]))
         check_corr = {
@@ -156,19 +153,10 @@ class BusinessParser:
                         return line
             return None
 
-        def find_all_contains(*keywords: str):
-            result = []
-            for line in all_lines:
-                for kw in keywords:
-                    if kw in line.text:
-                        result.append(line)
-                        break
-            return result
-
         def same_row_right_blocks(anchor, tol: Optional[int] = None):
             """
             找 anchor 右侧、且大致同行的文本块。
-            用中心点判断，允许轻微重叠。
+            使用中心点判断，允许轻微重叠。
             """
             _tol = tol if tol is not None else row_tol(anchor, 1.0)
             result = [
@@ -187,7 +175,7 @@ class BusinessParser:
                          col_right: Optional[float] = None,
                          max_count: int = 50):
             """
-            找 anchor 下方的块，按 top/left 排序。
+            找 anchor 下方的块。
             列过滤采用 overlap 模式。
             """
             _top_min = anchor.bottom
@@ -210,7 +198,7 @@ class BusinessParser:
                               col_left: Optional[float] = None,
                               col_right: Optional[float] = None) -> float:
             """
-            找 after_top 之后、且列范围相交的最近边界关键词 top。
+            找 after_top 之后最近的边界关键词 top。
             """
             bound = doc_height
             _col_left = 0 if col_left is None else col_left
@@ -236,11 +224,11 @@ class BusinessParser:
                 "住所", "住", "所", "营业场所", "经营场所", "注册地址",
                 "经营范围", "登记机关",
             ]
-            t = text.strip()
-            return t in label_keywords or any(t == kw for kw in label_keywords)
+            t = (text or "").strip()
+            return t in label_keywords
 
         def is_person_name(text: str) -> bool:
-            t = text.strip()
+            t = (text or "").strip()
             if not (2 <= len(t) <= 10):
                 return False
             if re.search(r"\d", t):
@@ -255,11 +243,11 @@ class BusinessParser:
             return chinese_count >= 2
 
         def is_date_text(text: str) -> bool:
-            t = text.strip()
+            t = (text or "").strip()
             return bool(re.fullmatch(r"\d{4}年\d{2}月\d{2}日", t))
 
         def looks_like_capital(text: str) -> bool:
-            t = text.strip()
+            t = (text or "").strip()
             if not t:
                 return False
             if is_date_text(t):
@@ -272,7 +260,7 @@ class BusinessParser:
             - 去掉前导标点/字母
             - 去掉已知噪声汉字，如“斤”
             """
-            t = text.strip()
+            t = (text or "").strip()
             if not t:
                 return t
 
@@ -320,8 +308,8 @@ class BusinessParser:
                                  skip_exact=None,
                                  strip_prefixes=()):
             """
-            从同行右侧块中，收集连续的一段文本。
-            遇到横向大间隔时停止，避免跨到另一个字段列。
+            从同行右侧块中收集连续文本。
+            遇到横向大间隔时停止，避免跨列串字段。
             """
             if not blocks:
                 return []
@@ -364,7 +352,7 @@ class BusinessParser:
             """
             典型行字段提取：
             1. 同块去标签
-            2. 同行右侧取最左值
+            2. 同行右侧取第一个满足条件的值
             """
             line = find_contains(*label_keywords)
             if not line:
@@ -387,11 +375,127 @@ class BusinessParser:
             return ""
 
         # ---------------------------------------------------------- #
+        #  地址前缀推断/补全                                            #
+        # ---------------------------------------------------------- #
+
+        def infer_province_from_name(name: str) -> str:
+            """
+            从企业名称前缀推断省份，如：
+            河南省吉米特信息技术有限公司 -> 河南省
+            """
+            if not name:
+                return ""
+            m = re.match(r"^([\u4e00-\u9fff]{2,6}省)", name.strip())
+            return m.group(1) if m else ""
+
+        def infer_city_from_credit_code(code: str) -> str:
+            """
+            从统一社会信用代码推断地级市。
+            这里只放了当前常见的河南映射，可按需扩展。
+            """
+            if not code or len(code) < 8:
+                return ""
+
+            admin_code = code[2:8]
+
+            city_map = {
+                "410100": "郑州市",
+                "410300": "洛阳市",
+                "410500": "安阳市",
+                "410700": "新乡市",
+                "410800": "焦作市",
+                "410900": "濮阳市",
+                "411000": "许昌市",
+                "411100": "漯河市",
+                "411200": "三门峡市",
+                "411300": "南阳市",
+                "411400": "商丘市",
+                "411500": "信阳市",
+                "411600": "周口市",
+                "411700": "驻马店市",
+                "419001": "济源市",
+            }
+            return city_map.get(admin_code, "")
+
+        def collect_nearby_address_fragments(addr_anchor, boundary_top: float):
+            """
+            收集地址锚点附近的短碎片，用于补全：
+            郑东 + 新 -> 郑东新区
+            """
+            if not addr_anchor:
+                return []
+
+            candidates = []
+            col_left = max(0, addr_anchor.left - base_h * 2)
+            col_right = doc_width
+
+            for line in all_lines:
+                if line is addr_anchor:
+                    continue
+                if line.top < addr_anchor.top - base_h * 2:
+                    continue
+                if line.top >= boundary_top:
+                    continue
+                if not (line.left < col_right and line.right > col_left):
+                    continue
+
+                text = (line.text or "").strip()
+                if not text:
+                    continue
+                if len(text) > 4:
+                    continue
+                if not all('\u4e00' <= c <= '\u9fff' for c in text):
+                    continue
+                if text in {"住", "所", "经营范围", "登记机关"}:
+                    continue
+
+                candidates.append((line, text))
+
+            seen = set()
+            result = []
+            for _, text in sorted(candidates, key=lambda x: (x[0].top, x[0].left)):
+                if text not in seen:
+                    seen.add(text)
+                    result.append(text)
+            return result
+
+        def complete_address_prefix(address: str, name: str, credit_code: str, nearby_fragments) -> str:
+            """
+            对已提取的地址做前缀补全：
+            - 公司名推断省份
+            - 信用代码推断城市
+            - OCR碎片推断区县（如 郑东 + 新 -> 郑东新区）
+            """
+            addr = (address or "").strip()
+            if not addr:
+                return addr
+
+            province = infer_province_from_name(name)
+            city = infer_city_from_credit_code(credit_code)
+
+            district = ""
+            frags = set(nearby_fragments or [])
+
+            if "郑东新区" in frags:
+                district = "郑东新区"
+            elif "郑东" in frags and ("新" in frags or "新区" in frags or "东新区" in frags):
+                district = "郑东新区"
+
+            prefix = ""
+            if province and not addr.startswith(province):
+                prefix += province
+            if city and city not in addr:
+                prefix += city
+            if district and district not in addr:
+                prefix += district
+
+            return prefix + addr
+
+        # ---------------------------------------------------------- #
         #  统一社会信用代码                                            #
         # ---------------------------------------------------------- #
 
         def extract_credit_code() -> str:
-            # 先扫所有块，优先返回通过校验的
             fallback = ""
             for line in all_lines:
                 for m in re.finditer(r"[0-9A-Z]{18}", line.text or ""):
@@ -401,7 +505,6 @@ class BusinessParser:
                     if not fallback:
                         fallback = candidate
 
-            # 再全文回退
             if fallback:
                 return fallback
 
@@ -416,7 +519,6 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_name() -> str:
-            # 情况1：完整标签在同一个块
             for kw in ("名称", "名 称"):
                 line = find_contains(kw)
                 if line:
@@ -429,7 +531,6 @@ class BusinessParser:
                     if row_parts:
                         return "".join(text for _, text in row_parts)
 
-            # 情况2：拆成 “名” + “称” + 值
             name_label = find_exact("名")
             if name_label:
                 row_parts = collect_row_sequence(
@@ -454,7 +555,6 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_type() -> str:
-            # 情况1：完整标签
             for kw in ("类型", "类 型"):
                 line = find_contains(kw)
                 if line:
@@ -469,7 +569,6 @@ class BusinessParser:
                         if vals:
                             return "".join(vals)
 
-            # 情况2：拆成 “类” + “型” + 值
             type_label = find_exact("类")
             if type_label:
                 row_parts = collect_row_sequence(
@@ -507,7 +606,6 @@ class BusinessParser:
                 if is_person_name(text):
                     return text
 
-            # 回退：下方近邻
             for block in blocks_below(
                 line,
                 top_max=line.bottom + base_h * 4,
@@ -547,8 +645,13 @@ class BusinessParser:
             """
             地址优先级：
             A. 完整标签：住所 / 营业场所 / 经营场所 / 注册地址
-            B. 单独“所”标签（适配上一份样本）
-            C. 单独“住”标签（适配当前这份样本）
+            B. 单独“所”标签
+            C. 单独“住”标签
+
+            最后再做一次前缀补全：
+            - 名称推断省份
+            - 信用代码推断城市
+            - OCR碎片推断郑东新区
             """
             addr_parts = []
             addr_anchor = None
@@ -565,15 +668,15 @@ class BusinessParser:
                     strip_prefixes=strip_prefixes,
                 )
 
-                # 找第一个像地址的块
                 for block, text in row_parts:
-                    if looks_like_address(text):
-                        return clean_addr_text(text), block
+                    cleaned = clean_addr_text(text)
+                    if looks_like_address(cleaned):
+                        return cleaned, block
 
-                # 若没有明显地址特征，则返回第一个非空块
                 for block, text in row_parts:
-                    if text:
-                        return clean_addr_text(text), block
+                    cleaned = clean_addr_text(text)
+                    if cleaned:
+                        return cleaned, block
 
                 return None, None
 
@@ -584,8 +687,10 @@ class BusinessParser:
                     if kw in full_addr_line.text:
                         remain = strip_label(full_addr_line.text, kw)
                         if remain:
-                            addr_parts.append(clean_addr_text(remain))
-                            addr_anchor = full_addr_line
+                            cleaned = clean_addr_text(remain)
+                            if cleaned:
+                                addr_parts.append(cleaned)
+                                addr_anchor = full_addr_line
                             break
 
                 if not addr_parts:
@@ -594,7 +699,7 @@ class BusinessParser:
                         addr_parts.append(first_text)
                         addr_anchor = first_block
 
-            # B. 优先尝试“所”
+            # B. 尝试“所”
             if not addr_parts:
                 suo_line = find_exact("所")
                 if suo_line:
@@ -608,7 +713,7 @@ class BusinessParser:
                         addr_parts.append(first_text)
                         addr_anchor = first_block
 
-            # C. 再尝试“住”
+            # C. 尝试“住”
             if not addr_parts:
                 zhu_line = find_exact("住")
                 if zhu_line:
@@ -622,7 +727,6 @@ class BusinessParser:
 
                     for block, text in row_parts:
                         cleaned = clean_addr_text(text)
-                        # 关键：住标签回退时，要求块在右半区，避免误拿左侧其它字段
                         if block.left >= doc_width * 0.35 and looks_like_address(cleaned):
                             addr_parts.append(cleaned)
                             addr_anchor = block
@@ -631,7 +735,6 @@ class BusinessParser:
             if not addr_parts or not addr_anchor:
                 return ""
 
-            # 继续往下收集同列连续地址行
             addr_col_left = max(0, addr_anchor.left - base_h * 2)
             addr_col_right = doc_width
 
@@ -664,27 +767,35 @@ class BusinessParser:
                 if not text:
                     continue
 
-                # 同列连续性：如果竖向间隔太大，停止，避免吃到下方噪声碎片
                 if block.top - prev.bottom > max(25, base_h * 3):
                     break
 
-                # 停止词
                 if any(kw in text for kw in stop_keywords):
                     break
 
-                # 日期行停止
                 if is_date_text(text) or re.fullmatch(r"[\d年月日\s]+", text):
                     break
 
-                # 竖排/异常高小碎片，忽略
                 if (block.bottom - block.top) > base_h * 2.2 and len(text) <= 2:
-                    break
+                    continue
 
-                addr_parts.append(clean_addr_text(text))
-                prev = block
-                seen.add(id(block))
+                cleaned = clean_addr_text(text)
+                if cleaned:
+                    addr_parts.append(cleaned)
+                    prev = block
+                    seen.add(id(block))
 
-            return "".join(addr_parts)
+            address = "".join(addr_parts)
+
+            nearby_fragments = collect_nearby_address_fragments(addr_anchor, boundary_top)
+            address = complete_address_prefix(
+                address=address,
+                name=data.get("name", ""),
+                credit_code=data.get("credit_code", ""),
+                nearby_fragments=nearby_fragments,
+            )
+
+            return address
 
         data["address"] = extract_address()
 
@@ -700,13 +811,11 @@ class BusinessParser:
             scope_parts = []
             seen_ids = {id(scope_line)}
 
-            # 1. 同块文本
             if "经营范围" in scope_line.text:
                 remain = strip_label(scope_line.text, "经营范围")
                 if remain:
                     scope_parts.append(remain)
 
-            # 2. 同行右侧：只取“左侧主栏”连续块，避免吃到右侧地址
             row_blocks = same_row_right_blocks(scope_line, tol=max(20, row_tol(scope_line, 1.0)))
             row_seq = collect_row_sequence(
                 row_blocks,
@@ -715,19 +824,16 @@ class BusinessParser:
 
             scope_anchor = None
             if row_seq:
-                # 取第一段作为起始
                 scope_anchor = row_seq[0][0]
                 for block, text in row_seq:
                     if text:
                         scope_parts.append(text)
                         seen_ids.add(id(block))
 
-            # 3. 收集下方主栏连续行
             if scope_anchor:
                 scope_col_left = max(0, scope_anchor.left - base_h)
                 scope_col_right = min(doc_width, scope_anchor.right + base_h * 2)
             else:
-                # 回退：若没有找到同行值，给一个偏左的主栏范围
                 scope_col_left = scope_line.right
                 scope_col_right = min(doc_width, int(doc_width * 0.7))
 
@@ -769,7 +875,6 @@ class BusinessParser:
                 if is_date_text(text):
                     break
 
-                # 主栏连续性控制：间隔过大则停止
                 if block.top - prev.bottom > max(25, base_h * 2.5):
                     break
 
