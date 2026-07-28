@@ -1,12 +1,23 @@
+# -*- coding: utf-8 -*-
+#Author: WuFeng <763467339@qq.com>
+#Date: 2026-07-09 10:20:58
+#LastEditTime: 2026-07-28 11:07:40
+#LastEditors: WuFeng <763467339@qq.com>
+#Description: 证件类型器
+#FilePath: /ocr-server/app/parsers/detector.py
+#Copyright 版权声明
+#
 # Description: 证件类型器 这个文件负责根据图片文字特征，自动告诉程序这是身份证还是营业执照。
+import re
 from app.utils.layout import Layout
 
 class DocumentDetector:
     def detect(self, layout: Layout) -> str:
         """
-        返回证件类型: id_front, id_back, business_license, unknown
+        返回证件类型: id_front, id_back, business_license, bank_card, invoice, unknown
         """
         all_text = "".join(layout.texts())
+        all_text_no_space = all_text.replace(" ", "").replace("\n", "")
         
         # 1. 身份证判定
         if "姓名" in all_text and "公民身份号码" in all_text:
@@ -22,5 +33,21 @@ class DocumentDetector:
         # 3. 补充判定：如果只有信用代码但没印“营业执照”四个字
         if "注册资本" in all_text and "法定代表人" in all_text:
             return "business_license"
+
+        # 4. 增值税发票判定
+        invoice_keywords = ["发票代码", "发票号码", "纳税人识别号", "价税合计", "开票日期"]
+        matching_invoice_kws = sum(1 for kw in invoice_keywords if kw in all_text_no_space)
+        if "发票" in all_text_no_space or matching_invoice_kws >= 2:
+            return "invoice"
+
+        # 5. 银行卡判定
+        bank_card_keywords = ["银行", "银联", "UnionPay", "借记卡", "储蓄卡", "信用卡", "贷记卡", "DEBIT", "CREDIT"]
+        has_bank_kw = any(kw in all_text or kw.lower() in all_text.lower() for kw in bank_card_keywords)
+        # 寻找卡号特征：15-19位数字
+        has_card_num = bool(re.search(r"\d{15,19}", all_text_no_space))
+        if has_bank_kw and has_card_num:
+            return "bank_card"
+        if has_bank_kw and any(kw in all_text_no_space for kw in ["借记卡", "储蓄卡", "信用卡", "贷记卡"]):
+            return "bank_card"
             
         return "unknown"
