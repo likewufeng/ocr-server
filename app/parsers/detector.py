@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #Author: WuFeng <763467339@qq.com>
 #Date: 2026-07-09 10:20:58
-#LastEditTime: 2026-07-28 11:07:40
+#LastEditTime: 2026-07-28 15:51:20
 #LastEditors: WuFeng <763467339@qq.com>
 #Description: 证件类型器
 #FilePath: /ocr-server/app/parsers/detector.py
@@ -43,8 +43,17 @@ class DocumentDetector:
         # 5. 银行卡判定
         bank_card_keywords = ["银行", "银联", "UnionPay", "借记卡", "储蓄卡", "信用卡", "贷记卡", "DEBIT", "CREDIT"]
         has_bank_kw = any(kw in all_text or kw.lower() in all_text.lower() for kw in bank_card_keywords)
-        # 寻找卡号特征：15-19位数字
-        has_card_num = bool(re.search(r"\d{15,19}", all_text_no_space))
+        
+        # 寻找卡号特征：清洗掉横线、空格、并替换形似英文字母，检测是否有 15-19位 连续数字组合
+        clean_text_for_card = all_text_no_space.upper().replace("-", "").replace(".", "").replace("/", "")
+        replacements = {
+            "O": "0", "I": "1", "L": "1", "S": "5", "Z": "2", "B": "8", "G": "6"
+        }
+        for wrong, right in replacements.items():
+            clean_text_for_card = clean_text_for_card.replace(wrong, right)
+            
+        has_card_num = bool(re.search(r"\d{15,19}", clean_text_for_card))
+        
         if has_bank_kw and has_card_num:
             return "bank_card"
         if has_bank_kw and any(kw in all_text_no_space for kw in ["借记卡", "储蓄卡", "信用卡", "贷记卡"]):
