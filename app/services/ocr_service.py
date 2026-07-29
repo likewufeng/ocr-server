@@ -8,6 +8,12 @@ from paddlex import create_pipeline
 
 from app.utils.logger import logger
 
+# 1. 确保在文件顶部导入了我们在 config.py 里配置好的 MODEL_DIR
+from app.config import MODEL_DIR
+
+# 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
+fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
+
 
 class OCRService:
 
@@ -19,13 +25,13 @@ class OCRService:
         if self.pipeline is not None:
             return
 
-        logger.info("Initializing PaddleX OCR Pipeline...")
+        logger.info("Initializing PaddleX OCR Pipeline with Fine-tuned best_model Detector...")
 
-        # 使用优化参数创建 pipeline
         self.pipeline = create_pipeline(
             "OCR",
+            det_model=fine_tuned_model_path, # 🌟 优雅指向您复制进去的 models/my_bank_card_det
             det_db_unclip_ratio=2.0,         # 检测框扩展比例，更好地包含文本
-            det_db_score_mode="slow",       # 更精确的分数计算模式
+            det_db_score_mode="slow",       # 更精确的分数计算模式       
         )
 
         logger.info("PaddleX OCR Pipeline Ready.")
@@ -40,6 +46,7 @@ class OCRService:
         # 布局分析 pipeline 配置
         self.layout_pipeline = create_pipeline(
             "OCR",
+            det_model=fine_tuned_model_path, # 🌟 优雅指向您复制进去的 models/my_bank_card_det
             use_layout_detection=True,    # 启用布局检测
             use_seal_recognition=True,      # 启用印章识别
             use_doc_preprocessor=False,     # 不使用文档预处理器
