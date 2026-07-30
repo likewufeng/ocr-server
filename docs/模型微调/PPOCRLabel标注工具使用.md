@@ -24,9 +24,10 @@
    pip install PyQt5
    pip install PPOCRLabel
    
-   pip install paddlepaddle-gpu -i https://pypi.tuna.tsinghua.edu.cn/simple
-   # pip install paddlepaddle -i https://pypi.tuna.tsinghua.edu.cn/simple
-   pip install "paddlex[ocr]" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install "paddlepaddle-gpu==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   # pip install "paddlepaddle==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install "paddlex[ocr]==3.1.0" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install "numpy<2" -i https://pypi.tuna.tsinghua.edu.cn/simple
    pip install matplotlib -i https://pypi.tuna.tsinghua.edu.cn/simple # 校验数据集需要画出标注框尺寸和坐标的统计直方图，而画图工作必须依赖 matplotlib（Python 著名的绘图库）
    ```
 
@@ -345,11 +346,7 @@ self.pipeline = create_pipeline(
 
 请在 Git Bash 中运行以下命令：
 
-Bash
-
-
-
-```
+```bash
 python main.py -c .venv/Lib/site-packages/paddlex/configs/modules/text_detection/PP-OCRv5_server_det.yaml -o Global.mode=train -o Global.dataset_dir=./bank/bank0 -o Global.device=cpu
 ```
 
@@ -361,31 +358,19 @@ python main.py -c .venv/Lib/site-packages/paddlex/configs/modules/text_detection
 
 1. 卸载当前的 CPU 版飞桨：
 
-   Bash
-
-   
-
-   ```
-   pip uninstall paddlepaddle -y
+   ```bash
+pip uninstall paddlepaddle -y
    ```
 
 2. 安装匹配您 CUDA 版本的 GPU 版飞桨（以 CUDA 11.8 为例）：
 
-   Bash
-
-   
-
-   ```
-   pip install paddlepaddle-gpu==3.0.0b1 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+   ```bash
+pip install paddlepaddle-gpu====3.1.1 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
    ```
 
 3. 重新启动 GPU 训练命令：
 
-   Bash
-
-   
-
-   ```
+   ```bash
    python main.py -c .venv/Lib/site-packages/paddlex/configs/modules/text_detection/PP-OCRv5_server_det.yaml -o Global.mode=train -o Global.dataset_dir=./bank/bank0 -o Global.device=gpu:0
    ```
 

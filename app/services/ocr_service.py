@@ -15,6 +15,28 @@ from app.config import MODEL_DIR
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
 
 
+def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
+    """为 PaddleX OCR pipeline 构造显式配置，优先使用自训练模型，失败时回退到官方模型。"""
+    return {
+        "pipeline_name": "OCR",
+        "text_type": "general",
+        "use_doc_preprocessor": False,
+        "use_textline_orientation": False,
+        "batch_size": 1,
+        "SubModules": {
+            "TextDetection": {
+                "model_name": "PP-OCRv5_server_det",
+                "model_dir": fine_tuned_model_path if use_fine_tuned else None,
+                "unclip_ratio": 2.0,
+            },
+            "TextRecognition": {
+                "model_name": "PP-OCRv5_server_rec",
+                "model_dir": None,
+            },
+        },
+    }
+
+
 class OCRService:
 
     def __init__(self):
@@ -25,39 +47,51 @@ class OCRService:
         if self.pipeline is not None:
             return
 
-        logger.info("Initializing PaddleX OCR Pipeline with Fine-tuned best_model Detector...")
+        logger.info("Initializing PaddleX OCR Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
-        self.pipeline = create_pipeline(
-            "OCR",
-            det_model=fine_tuned_model_path, # 🌟 优雅指向您复制进去的 models/my_bank_card_det
-            det_db_unclip_ratio=2.0,         # 检测框扩展比例，更好地包含文本
-            det_db_score_mode="slow",       # 更精确的分数计算模式       
-        )
-
-        logger.info("PaddleX OCR Pipeline Ready.")
+        try:
+            self.pipeline = create_pipeline(
+                pipeline="OCR",
+                config=_build_ocr_config(use_fine_tuned=True),
+            )
+            logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
+        except Exception as exc:
+            logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
+            self.pipeline = create_pipeline(
+                pipeline="OCR",
+                config=_build_ocr_config(use_fine_tuned=False),
+            )
+            logger.info("PaddleX OCR Pipeline Ready with official detector.")
 
     def initialize_layout_pipeline(self):
         """初始化布局分析 pipeline"""
         if self.layout_pipeline is not None:
             return
 
-        logger.info("Initializing PaddleX OCR Layout Pipeline...")
+        logger.info("Initializing PaddleX OCR Layout Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
-        # 布局分析 pipeline 配置
-        self.layout_pipeline = create_pipeline(
-            "OCR",
-            det_model=fine_tuned_model_path, # 🌟 优雅指向您复制进去的 models/my_bank_card_det
-            use_layout_detection=True,    # 启用布局检测
-            use_seal_recognition=True,      # 启用印章识别
-            use_doc_preprocessor=False,     # 不使用文档预处理器
-            return_layout_polygon_points=True,  # 返回多边形点
-            format_block_content=True,     # 格式化块内容
-            merge_layout_blocks=True,      # 合并布局块
-            det_db_unclip_ratio=2.0,       # 检测框扩展比例
-            det_db_score_mode="slow",     # 更精确的分数计算模式
-        )
+        layout_config = _build_ocr_config(use_fine_tuned=True)
+        layout_config.update({
+            "use_doc_preprocessor": False,
+        })
 
-        logger.info("PaddleX OCR Layout Pipeline Ready.")
+        try:
+            self.layout_pipeline = create_pipeline(
+                pipeline="OCR",
+                config=layout_config,
+            )
+            logger.info("PaddleX OCR Layout Pipeline Ready with fine-tuned detector.")
+        except Exception as exc:
+            logger.warning("Fine-tuned detector failed for layout pipeline, falling back to official model: {}", exc)
+            layout_config = _build_ocr_config(use_fine_tuned=False)
+            layout_config.update({
+                "use_doc_preprocessor": False,
+            })
+            self.layout_pipeline = create_pipeline(
+                pipeline="OCR",
+                config=layout_config,
+            )
+            logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
 
     def preprocess_image(self, image_path: str) -> str:
         """
@@ -191,12 +225,14 @@ class OCRService:
                 # 文本后处理
                 texts = self.postprocess_texts(texts)
 
+                doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
+
                 return {
                     "texts": texts,
                     "scores": scores,
                     "boxes": boxes,
                     "polys": polys,
-                    "angle": result["doc_preprocessor_res"]["angle"]
+                    "angle": doc_preprocessor_res.get("angle", 0)
                 }
 
             return {
