@@ -24,11 +24,16 @@
    pip install PyQt5
    pip install PPOCRLabel
    
-   pip install "paddlepaddle-gpu==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
-   # pip install "paddlepaddle==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   # pip install "paddlepaddle-gpu==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install "paddlepaddle==3.1.1" -i https://pypi.tuna.tsinghua.edu.cn/simple
    pip install "paddlex[ocr]==3.1.0" -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install "paddleocr==3.1.0" --force-reinstall -i https://pypi.tuna.tsinghua.edu.cn/simple
    pip install "numpy<2" -i https://pypi.tuna.tsinghua.edu.cn/simple
    pip install matplotlib -i https://pypi.tuna.tsinghua.edu.cn/simple # 校验数据集需要画出标注框尺寸和坐标的统计直方图，而画图工作必须依赖 matplotlib（Python 著名的绘图库）
+   
+   
+   # 查看版本
+   python -c "import paddle, paddlex; print(paddle.__version__, paddlex.__version__)"
    ```
 
 3. 一键启动：

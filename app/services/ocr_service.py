@@ -10,13 +10,14 @@ from app.utils.logger import logger
 
 # 1. 确保在文件顶部导入了我们在 config.py 里配置好的 MODEL_DIR
 from app.config import MODEL_DIR
+from app.config import OCR_USE_FINE_TUNED_MODEL
 
 # 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
 
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
-    """为 PaddleX OCR pipeline 构造显式配置，优先使用自训练模型，失败时回退到官方模型。"""
+    """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
     return {
         "pipeline_name": "OCR",
         "text_type": "general",
@@ -47,51 +48,59 @@ class OCRService:
         if self.pipeline is not None:
             return
 
-        logger.info("Initializing PaddleX OCR Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
+        if OCR_USE_FINE_TUNED_MODEL:
+            logger.info("Initializing PaddleX OCR Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
-        try:
-            self.pipeline = create_pipeline(
-                pipeline="OCR",
-                config=_build_ocr_config(use_fine_tuned=True),
-            )
-            logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
-        except Exception as exc:
-            logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
-            self.pipeline = create_pipeline(
-                pipeline="OCR",
-                config=_build_ocr_config(use_fine_tuned=False),
-            )
-            logger.info("PaddleX OCR Pipeline Ready with official detector.")
+            try:
+                self.pipeline = create_pipeline(
+                    pipeline="OCR",
+                    config=_build_ocr_config(use_fine_tuned=True),
+                )
+                logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
+                return
+            except Exception as exc:
+                logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
+
+        logger.info("Initializing PaddleX OCR Pipeline with official detector.")
+        self.pipeline = create_pipeline(
+            pipeline="OCR",
+            config=_build_ocr_config(use_fine_tuned=False),
+        )
+        logger.info("PaddleX OCR Pipeline Ready with official detector.")
 
     def initialize_layout_pipeline(self):
         """初始化布局分析 pipeline"""
         if self.layout_pipeline is not None:
             return
 
-        logger.info("Initializing PaddleX OCR Layout Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
+        if OCR_USE_FINE_TUNED_MODEL:
+            logger.info("Initializing PaddleX OCR Layout Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
-        layout_config = _build_ocr_config(use_fine_tuned=True)
-        layout_config.update({
-            "use_doc_preprocessor": False,
-        })
-
-        try:
-            self.layout_pipeline = create_pipeline(
-                pipeline="OCR",
-                config=layout_config,
-            )
-            logger.info("PaddleX OCR Layout Pipeline Ready with fine-tuned detector.")
-        except Exception as exc:
-            logger.warning("Fine-tuned detector failed for layout pipeline, falling back to official model: {}", exc)
-            layout_config = _build_ocr_config(use_fine_tuned=False)
+            layout_config = _build_ocr_config(use_fine_tuned=True)
             layout_config.update({
                 "use_doc_preprocessor": False,
             })
-            self.layout_pipeline = create_pipeline(
-                pipeline="OCR",
-                config=layout_config,
-            )
-            logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
+
+            try:
+                self.layout_pipeline = create_pipeline(
+                    pipeline="OCR",
+                    config=layout_config,
+                )
+                logger.info("PaddleX OCR Layout Pipeline Ready with fine-tuned detector.")
+                return
+            except Exception as exc:
+                logger.warning("Fine-tuned detector failed for layout pipeline, falling back to official model: {}", exc)
+
+        logger.info("Initializing PaddleX OCR Layout Pipeline with official detector.")
+        layout_config = _build_ocr_config(use_fine_tuned=False)
+        layout_config.update({
+            "use_doc_preprocessor": False,
+        })
+        self.layout_pipeline = create_pipeline(
+            pipeline="OCR",
+            config=layout_config,
+        )
+        logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
 
     def preprocess_image(self, image_path: str) -> str:
         """
