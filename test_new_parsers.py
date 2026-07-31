@@ -163,6 +163,83 @@ def test_business_license_with_common_ocr_variants():
     assert result["address"] == "河南省渑池县测试镇1号"
     print("Business License Variants Test Passed!")
 
+def test_business_license_with_missing_name_prefix():
+    print("\n--- Testing Business License with Missing Name Prefix ---")
+    lines = [
+        OCRLine(text="营业执照", left=436, top=149, right=817, bottom=236, score=0.9978643655776978),
+        OCRLine(text="统一社会信用代码", left=55, top=177, right=276, bottom=205, score=0.999366283416748),
+        OCRLine(text="91410100MACER7B67P", left=64, top=203, right=258, bottom=224, score=0.9971888661384583),
+        OCRLine(text="称河南省吉米特信息技术有限公司", left=138, top=341, right=481, bottom=367, score=0.9995037913322449),
+        OCRLine(text="注册资本", left=697, top=336, right=824, bottom=367, score=0.9998816847801208),
+        OCRLine(text="伍佰万圆整", left=828, top=341, right=941, bottom=365, score=0.9995759129524231),
+        OCRLine(text="类", left=41, top=391, right=72, bottom=419, score=0.9999831914901733),
+        OCRLine(text="有限责任公司（自然人独资）", left=187, top=396, right=444, bottom=414, score=0.9959561228752136),
+        OCRLine(text="成立日期2023年04月21日", left=698, top=385, right=983, bottom=418, score=0.9998270869255066),
+        OCRLine(text="法定代表人", left=41, top=441, right=172, bottom=469, score=0.9997035264968872),
+        OCRLine(text="王志勇", left=177, top=441, right=254, bottom=469, score=0.9997938275337219),
+        OCRLine(text="住", left=698, top=436, right=732, bottom=465, score=0.9995580315589905),
+        OCRLine(text="所", left=794, top=438, right=828, bottom=464, score=0.9999828338623047),
+        OCRLine(text="河南省郑州市郑东新区平安大道与", left=840, top=441, right=1144, bottom=464, score=0.9991366267204285),
+        OCRLine(text="明理路交叉口西南角博雅广场4号", left=843, top=474, right=1134, bottom=492, score=0.9988353252410889),
+        OCRLine(text="楼2楼201", left=840, top=499, right=923, bottom=526, score=0.9997758269309998),
+        OCRLine(text="经营范围", left=41, top=493, right=169, bottom=518, score=0.99979567527771),
+        OCRLine(text="一般项目：信息系统集成服务", left=186, top=486, right=650, bottom=504, score=0.9702147245407104),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("Business License Missing Name Prefix Parsed Result:")
+    print(result)
+    assert result["type"] == "business_license"
+    assert result["name"] == "河南省吉米特信息技术有限公司"
+    assert result["credit_code"] == "91410100MACER7B67P"
+    print("Business License Missing Name Prefix Test Passed!")
+
+def test_business_license_scope_order_with_tall_label():
+    print("\n--- Testing Business License Scope Order with Tall Label ---")
+    lines = [
+        OCRLine(text="营业执照", left=1645, top=926, right=2771, bottom=1182, score=0.9983658194541931),
+        OCRLine(text="统一社会信用代码", left=552, top=991, right=1207, bottom=1065, score=0.9987980127334595),
+        OCRLine(text="91410000692152338A", left=582, top=1074, right=1084, bottom=1130, score=0.9953087568283081),
+        OCRLine(text="名称", left=540, top=1452, right=935, bottom=1556, score=0.9996819496154785),
+        OCRLine(text="河南省信息化集团有限公司", left=965, top=1465, right=1692, bottom=1543, score=0.9979178309440613),
+        OCRLine(text="注册资本", left=2440, top=1465, right=2801, bottom=1543, score=0.9996041059494019),
+        OCRLine(text="叁仟零柒拾柒万圆整", left=2843, top=1473, right=3396, bottom=1547, score=0.9940713047981262),
+        OCRLine(text="类型", left=540, top=1587, right=918, bottom=1695, score=0.999326229095459),
+        OCRLine(text="其他有限责任公司", left=969, top=1613, right=1458, bottom=1686, score=0.9990847110748291),
+        OCRLine(text="成立日期", left=2426, top=1594, right=2802, bottom=1696, score=0.9999387264251709),
+        OCRLine(text="2009年07月06日", left=2843, top=1617, right=3268, bottom=1691, score=0.9988440871238708),
+        OCRLine(text="法定代表人", left=543, top=1734, right=915, bottom=1835, score=0.9994615316390991),
+        OCRLine(text="王秀清", left=965, top=1752, right=1164, bottom=1830, score=0.9868562817573547),
+        OCRLine(text="住", left=2435, top=1752, right=2524, bottom=1830, score=0.9998525381088257),
+        OCRLine(text="所", left=2716, top=1756, right=2809, bottom=1826, score=0.9999452829360962),
+        OCRLine(text="郑州市郑东新区明理路祭城南正商", left=2843, top=1760, right=3744, bottom=1834, score=0.9908179044723511),
+        OCRLine(text="博雅广场4号楼15层", left=2843, top=1843, right=3362, bottom=1921, score=0.9959174394607544),
+        OCRLine(text="经营范围", left=535, top=1877, right=915, bottom=1978, score=0.9995774626731873),
+        OCRLine(text="许可项日，电子认证服务，电子政务电子认证服务，计机信息系统安全专用产品销件", left=965, top=1878, right=2274, bottom=1930, score=0.9589536786079407),
+        OCRLine(text=";第一类增值电信业务：第二类增值电信业务（依法须经批准的项H，经相关部门批准后", left=965, top=1925, right=2308, bottom=1982, score=0.947127103805542),
+        OCRLine(text="方可开展经营活动，具体经营项目以和关部门批准文件或许可证件为准）", left=960, top=1969, right=2049, bottom=2034, score=0.9544682502746582),
+        OCRLine(text="一般项目：软件开发，网络与信总安全软件开发：计算机软硬件及辅助设备零售：网络设", left=965, top=2021, right=2308, bottom=2078, score=0.9256977438926697),
+        OCRLine(text="备销售，仿息安全设备销售，技术服务、技术开发、技术资询、技术交流、技术转让、技", left=965, top=2073, right=2308, bottom=2126, score=0.8974995613098145),
+        OCRLine(text="登记机关", left=3071, top=2654, right=3282, bottom=2731, score=0.9087705016136169),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("Business License Scope Order Parsed Result:")
+    print(result)
+    assert result["type"] == "business_license"
+    assert result["business_scope"].startswith("许可项目")
+    assert not result["business_scope"].startswith("博雅广场")
+    assert "博雅广场4号楼15层" not in result["business_scope"]
+    assert "第一类增值电信业务" in result["business_scope"]
+    assert result["business_scope"].find("方可开展经营活动") > result["business_scope"].find("第一类增值电信业务")
+    assert result["business_scope"].find("一般项目") > result["business_scope"].find("方可开展经营活动")
+    assert "相关部门" in result["business_scope"]
+    assert "网络设备销售" in result["business_scope"]
+    assert "信息安全设备销售" in result["business_scope"]
+    print("Business License Scope Order Test Passed!")
+
 def test_id_front_with_split_id_label():
     print("\n--- Testing ID Front with Split ID Label ---")
     lines = [
@@ -273,3 +350,5 @@ if __name__ == "__main__":
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()
     test_business_license_with_common_ocr_variants()
+    test_business_license_with_missing_name_prefix()
+    test_business_license_scope_order_with_tall_label()

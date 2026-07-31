@@ -263,6 +263,18 @@ class BusinessParser:
                 return False
             return bool(re.search(r"[万亿圆元整壹贰叁肆伍陆柒捌玖拾佰仟零\d]", t))
 
+        def looks_like_company_name(text: str) -> bool:
+            t = (text or "").strip()
+            if len(t) < 4:
+                return False
+            if re.search(r"\d", t):
+                return False
+            company_suffixes = [
+                "有限公司", "有限责任公司", "股份有限公司", "集团有限公司",
+                "公司", "合伙企业", "个人独资企业", "农民专业合作社",
+            ]
+            return any(suffix in t for suffix in company_suffixes)
+
         def clean_addr_text(text: str) -> str:
             """
             清理地址首部OCR噪声：
@@ -311,6 +323,31 @@ class BusinessParser:
                 return True
             chinese_count = sum(1 for c in t if "\u4e00" <= c <= "\u9fff")
             return chinese_count >= 4 and bool(re.search(r"\d", t))
+
+        def normalize_business_scope_text(text: str) -> str:
+            t = (text or "").strip()
+            corrections = {
+                "许可项日": "许可项目",
+                "许可项H": "许可项目",
+                "许可项口": "许可项目",
+                "批准的项H": "批准的项目",
+                "批准的项口": "批准的项目",
+                "经相关部门批准后方可": "经相关部门批准后方可",
+                "和关部门": "相关部门",
+                "计机": "计算机",
+                "销件": "销售",
+                "仿息": "信息",
+                "信总": "信息",
+                "工联网": "互联网",
+                "工连网": "互联网",
+                "数燃": "数据",
+                "智使": "智能",
+                "不合教育": "不含教育",
+                "技术资询": "技术咨询",
+            }
+            for wrong, right in corrections.items():
+                t = t.replace(wrong, right)
+            return t
 
         def collect_row_sequence(blocks,
                                  gap_threshold: Optional[int] = None,
@@ -555,6 +592,21 @@ class BusinessParser:
                             values.append(text)
                     if values:
                         return "".join(values)
+
+            name_boundary_top = find_boundary_top(
+                0,
+                keywords=["法定代表人", "负责人", "住所", "住", "经营范围"],
+            )
+            for line in all_lines:
+                text = (line.text or "").strip()
+                if not text or line.top >= name_boundary_top:
+                    continue
+                if text.startswith("称"):
+                    candidate = text[1:].lstrip(":：").strip()
+                    if looks_like_company_name(candidate):
+                        return candidate
+                if looks_like_company_name(text) and not is_label_like(text):
+                    return text
 
             return ""
 
@@ -827,27 +879,6 @@ class BusinessParser:
                 if remain:
                     scope_parts.append(remain)
 
-            row_blocks = same_row_right_blocks(scope_line, tol=max(20, row_tol(scope_line, 1.0)))
-            row_seq = collect_row_sequence(
-                row_blocks,
-                gap_threshold=max(30, base_h * 4),
-            )
-
-            scope_anchor = None
-            if row_seq:
-                scope_anchor = row_seq[0][0]
-                for block, text in row_seq:
-                    if text:
-                        scope_parts.append(text)
-                        seen_ids.add(id(block))
-
-            if scope_anchor:
-                scope_col_left = max(0, scope_anchor.left - base_h)
-                scope_col_right = min(doc_width, scope_anchor.right + base_h * 2)
-            else:
-                scope_col_left = scope_line.right
-                scope_col_right = min(doc_width, int(doc_width * 0.7))
-
             boundary_top = find_boundary_top(
                 scope_line.top,
                 keywords=["登记机关", "市场监督", "国家企业信用信息公示系统网址"],
@@ -860,40 +891,53 @@ class BusinessParser:
                 "国家企业信用信息公示系统网址", "http", "https",
             ]
 
-            prev = scope_anchor if scope_anchor else scope_line
+            scope_candidates = []
+            min_top = scope_line.top - row_tol(scope_line, 0.8)
+            min_left = scope_line.right - base_h * 2
+            max_right = min(doc_width, int(doc_width * 0.68), scope_line.right + base_h * 22)
 
-            for block in blocks_below(
-                prev,
-                top_max=boundary_top,
-                col_left=scope_col_left,
-                col_right=scope_col_right,
-                max_count=50,
-            ):
+            for block in all_lines:
                 if id(block) in seen_ids:
+                    continue
+                if block.top < min_top or block.top >= boundary_top:
+                    continue
+                if block.right <= min_left or block.left >= max_right:
                     continue
 
                 text = (block.text or "").strip()
                 if not text:
                     continue
 
+                if block.top < scope_line.top and not any(kw in text for kw in ("一般项目", "许可项目", "许可项", "项目")):
+                    continue
+
                 if any(kw in text for kw in stop_keywords):
-                    break
+                    continue
 
                 if re.fullmatch(r"\d{1,4}", text):
-                    break
+                    continue
                 if re.fullmatch(r"[年月日]", text):
-                    break
+                    continue
                 if is_date_text(text):
-                    break
+                    continue
 
-                if block.top - prev.bottom > max(25, base_h * 2.5):
+                scope_candidates.append(block)
+
+            scope_candidates.sort(key=lambda block: (block.top, block.left))
+
+            prev = None
+            for block in scope_candidates:
+                text = (block.text or "").strip()
+                if not text:
+                    continue
+
+                if prev is not None and block.top - prev.bottom > max(25, base_h * 2.8):
                     break
 
                 scope_parts.append(text)
-                seen_ids.add(id(block))
                 prev = block
 
-            return "".join(scope_parts)
+            return normalize_business_scope_text("".join(scope_parts))
 
         data["business_scope"] = extract_business_scope()
 
