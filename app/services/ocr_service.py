@@ -157,11 +157,37 @@ class OCRService:
             else Path(image_path).parent / "temp_preprocessed"
         )
         temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / f"preprocessed_{Path(image_path).name}"
+        temp_path = temp_dir / "preprocessed_fine_tuned.png"
         if not cv2.imwrite(str(temp_path), sharpened):
             raise OSError(f"Failed to save preprocessed image: {temp_path}")
 
         return str(temp_path)
+
+    @staticmethod
+    def _save_platform_preprocessed_image(
+        doc_preprocessor_res: dict[str, Any],
+        output_dir: str | Path | None,
+        request_logger,
+    ) -> None:
+        if output_dir is None:
+            return
+
+        output_img = doc_preprocessor_res.get("output_img")
+        if not isinstance(output_img, np.ndarray):
+            request_logger.warning(
+                "Platform preprocessor did not return an output image"
+            )
+            return
+
+        output_path = Path(output_dir) / "preprocessed_platform.png"
+        if cv2.imwrite(str(output_path), output_img):
+            request_logger.info(
+                "Platform preprocessed image saved: {}", output_path
+            )
+        else:
+            request_logger.warning(
+                "Failed to save platform preprocessed image: {}", output_path
+            )
 
     @staticmethod
     def _looks_like_alphanumeric_code(text: str) -> bool:
@@ -277,6 +303,10 @@ class OCRService:
                 texts = self.postprocess_texts(texts)
 
                 doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
+                if not self.pipeline_uses_fine_tuned_detector:
+                    self._save_platform_preprocessed_image(
+                        doc_preprocessor_res, output_dir, request_logger
+                    )
 
                 return {
                     "texts": texts,
