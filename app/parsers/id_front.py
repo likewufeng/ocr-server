@@ -13,6 +13,18 @@ from app.utils.layout import Layout
 
 
 class IDFrontParser:
+    @staticmethod
+    def _find_id_number_label_line(layout: Layout):
+        line = layout.find_any("公民身份号码", "公民身份证号码", "身份证号码", "身份号码", "公民身份")
+        if line:
+            return line
+
+        for item in layout.all() or []:
+            text = (item.text or "").replace(" ", "")
+            if "身份" in text and "号码" in text:
+                return item
+
+        return None
 
     def parse(self, layout: Layout):
 
@@ -51,7 +63,7 @@ class IDFrontParser:
 
         if gender_line:
 
-            text = gender_line.text
+            text = "".join(i.text for i in layout.same_row(gender_line, tolerance=30))
 
             m = re.search(r"性别\s*(男|女)", text)
             if m:
@@ -88,8 +100,18 @@ class IDFrontParser:
             if first_addr:
                 addr_parts.append(first_addr)
 
+            # 平台模型常把“住址”和第一段地址拆成同行两个框，且地址框 top 可能略高于“住址”框。
+            same_row_addr_lines = [
+                line for line in layout.same_row(addr_line, tolerance=35)
+                if line is not addr_line and line.center_x > addr_line.center_x
+            ]
+            for line in same_row_addr_lines:
+                text = (line.text or "").strip()
+                if text and "住址" not in text:
+                    addr_parts.append(text)
+
             # 找身份证号所在行，作为地址的下边界
-            id_label_line = layout.find("公民身份号码")
+            id_label_line = self._find_id_number_label_line(layout)
             bottom_bound = None
             if id_label_line and id_label_line.top > addr_line.top:
                 bottom_bound = id_label_line.top
@@ -103,11 +125,16 @@ class IDFrontParser:
             # 不要求 next_line.top >= addr_line.bottom
             # 只要求它明显在 addr_line 的下半部分以后即可
             min_top = addr_line.top + int((addr_line.bottom - addr_line.top) * 0.55)
+            same_row_bottom = max(
+                [addr_line.bottom] + [line.bottom for line in same_row_addr_lines]
+            )
 
             # 收集候选续行
             candidates = []
             for line in all_lines:
                 if line is addr_line:
+                    continue
+                if line.text in addr_parts:
                     continue
                 if bottom_bound is not None and line.top >= bottom_bound:
                     continue
@@ -120,8 +147,8 @@ class IDFrontParser:
 
             candidates.sort(key=lambda x: (x.top, x.left))
 
-            stop_keywords = ["公民身份号码", "姓名", "性别", "民族", "出生", "住址"]
-            current_bottom = addr_line.bottom
+            stop_keywords = ["公民身份号码", "公民身份证号码", "身份证号码", "身份号码", "公民身份", "姓名", "性别", "民族", "出生", "住址"]
+            current_bottom = same_row_bottom
 
             for line in candidates:
                 text = (line.text or "").strip()
@@ -143,9 +170,11 @@ class IDFrontParser:
         # ---------------- 身份证号 ----------------
 
         # 优先从“公民身份号码”所在行提取
-        id_line = layout.find("公民身份号码")
+        id_line = self._find_id_number_label_line(layout)
         if id_line:
-            m = re.search(r"\d{17}[0-9Xx]", id_line.text)
+            same_row_text = "".join(i.text for i in layout.same_row(id_line, tolerance=30))
+            near_right_text = "".join(i.text for i in layout.right_of(id_line, tolerance=30))
+            m = re.search(r"\d{17}[0-9Xx]", id_line.text + same_row_text + near_right_text)
             if m:
                 data["id_number"] = m.group().upper()
 

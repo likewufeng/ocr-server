@@ -37,7 +37,7 @@ def test_bank_card_with_typos():
     assert result["card_number"] == "6222021001123455781" # O->0, S->5, L->1 纠正成功
     assert result["card_type"] == "借记卡"
     assert result["valid_date"] == "12/29" # '.'->'/', Q->9 纠正成功
-    print("Bank Card Typos Test Passed! ✅")
+    print("Bank Card Typos Test Passed!")
 
 def test_invoice_with_typos():
     print("\n--- Testing VAT Invoice with OCR Typos ---")
@@ -78,8 +78,56 @@ def test_invoice_with_typos():
     assert result["total_amount"] == "1000.00" # O->0 纠正成功
     assert result["total_tax"] == "60.00" # O->0 纠正成功
     assert result["amount_with_tax"] == "1060.00" # O->0 纠正成功
-    print("VAT Invoice Typos Test Passed! ✅")
+    print("VAT Invoice Typos Test Passed!")
+
+def test_id_front_with_split_id_label():
+    print("\n--- Testing ID Front with Split ID Label ---")
+    lines = [
+        OCRLine(text="姓名测试用户", left=50, top=20, right=180, bottom=45, score=0.99),
+        OCRLine(text="性别男民族汉", left=50, top=70, right=200, bottom=95, score=0.98),
+        OCRLine(text="出生2000年01月01日", left=50, top=120, right=260, bottom=145, score=0.98),
+        OCRLine(text="住址测试省测试市测试区", left=50, top=170, right=320, bottom=195, score=0.98),
+        OCRLine(text="公民身份", left=50, top=230, right=155, bottom=255, score=0.95),
+        OCRLine(text="00000020000101000X", left=180, top=230, right=420, bottom=255, score=0.99),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("ID Front Split Label Parsed Result:")
+    print(result)
+    assert result["type"] == "id_front"
+    assert result["name"] == "测试用户"
+    assert result["gender"] == "男"
+    assert result["nation"] == "汉"
+    assert result["birthday"] == "2000年01月01日"
+    assert result["id_number"] == "00000020000101000X"
+    print("ID Front Split Label Test Passed!")
+
+def test_id_front_with_split_address_and_nation():
+    print("\n--- Testing ID Front with Split Address and Nation ---")
+    lines = [
+        OCRLine(text="姓名吴烽", left=358, top=189, right=594, bottom=248, score=0.8657310009002686),
+        OCRLine(text="性别男", left=365, top=269, right=526, bottom=321, score=0.9992308616638184),
+        OCRLine(text="民族汉", left=505, top=268, right=705, bottom=314, score=0.9970760345458984),
+        OCRLine(text="出生1991年8月15日", left=369, top=330, right=785, bottom=389, score=0.9874458909034729),
+        OCRLine(text="住址", left=372, top=415, right=489, bottom=461, score=0.9989250898361206),
+        OCRLine(text="河南省渑池县洪阳镇德厚", left=466, top=405, right=851, bottom=460, score=0.9590575695037842),
+        OCRLine(text="村七组1号", left=482, top=454, right=665, bottom=508, score=0.9967519640922546),
+        OCRLine(text="公民身份号码411221199108152534", left=380, top=571, right=1114, bottom=647, score=0.9967567324638367),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("ID Front Split Address Parsed Result:")
+    print(result)
+    assert result["type"] == "id_front"
+    assert result["nation"] == "汉"
+    assert result["address"] == "河南省渑池县洪阳镇德厚村七组1号"
+    assert result["id_number"] == "411221199108152534"
+    print("ID Front Split Address Test Passed!")
 
 if __name__ == "__main__":
+    test_id_front_with_split_id_label()
+    test_id_front_with_split_address_and_nation()
     test_bank_card_with_typos()
     test_invoice_with_typos()

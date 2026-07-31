@@ -12,6 +12,13 @@ import re
 from app.utils.layout import Layout
 
 class DocumentDetector:
+    @staticmethod
+    def _has_id_number_label(text: str) -> bool:
+        if any(label in text for label in ("公民身份号码", "公民身份证号码", "身份号码", "身份证号码")):
+            return True
+
+        return "公民" in text and "身份" in text and "号码" in text
+
     def detect(self, layout: Layout) -> str:
         """
         返回证件类型: id_front, id_back, business_license, bank_card, invoice, unknown
@@ -20,7 +27,14 @@ class DocumentDetector:
         all_text_no_space = all_text.replace(" ", "").replace("\n", "")
         
         # 1. 身份证判定
-        if "姓名" in all_text and "公民身份号码" in all_text:
+        has_id_number = bool(re.search(r"\d{17}[0-9Xx]", all_text_no_space))
+        id_front_keywords = ("姓名", "性别", "民族", "出生", "住址")
+        matching_id_front_kws = sum(1 for kw in id_front_keywords if kw in all_text_no_space)
+
+        if "姓名" in all_text_no_space and self._has_id_number_label(all_text_no_space):
+            return "id_front"
+
+        if has_id_number and matching_id_front_kws >= 3:
             return "id_front"
         
         if "签发机关" in all_text and "有效期限" in all_text:

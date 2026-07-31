@@ -18,6 +18,14 @@ fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
+    text_detection_config = {
+        "model_name": "PP-OCRv5_server_det",
+        # 官方 PP-OCRv5 默认值是 1.5；2.0 是为了银行卡微调检测模型扩大检测框。
+        "unclip_ratio": 2.0 if use_fine_tuned else 1.5,
+    }
+    if use_fine_tuned:
+        text_detection_config["model_dir"] = fine_tuned_model_path
+
     return {
         "pipeline_name": "OCR",
         "text_type": "general",
@@ -25,14 +33,9 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
         "use_textline_orientation": False,
         "batch_size": 1,
         "SubModules": {
-            "TextDetection": {
-                "model_name": "PP-OCRv5_server_det",
-                "model_dir": fine_tuned_model_path if use_fine_tuned else None,
-                "unclip_ratio": 2.0,
-            },
+            "TextDetection": text_detection_config,
             "TextRecognition": {
                 "model_name": "PP-OCRv5_server_rec",
-                "model_dir": None,
             },
         },
     }
@@ -160,8 +163,8 @@ class OCRService:
         """
         # 汉字误识别修正（仅在中文上下文安全使用）
         han_corrections = {
-            '淹': '渑',  # 常见汉字误识别：淹→渑（身份证地址）
-            '祭': '商',  # 常见汉字误识别：祭→商
+            # '淹': '渑',  # 常见汉字误识别：淹→渑（身份证地址）
+            # '祭': '商',  # 常见汉字误识别：祭→商
         }
 
         # 符号修正（保留 '：' '（' '）' '、' '·'，中文文档标签常用）
