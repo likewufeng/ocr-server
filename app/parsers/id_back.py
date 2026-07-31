@@ -4,6 +4,16 @@ from app.utils.layout import Layout
 
 
 class IDBackParser:
+    def _normalize_authority(self, text: str) -> str:
+        if not text:
+            return ""
+
+        t = text.strip().replace(" ", "")
+        corrections = {
+            "池县公安局": "渑池县公安局",
+        }
+
+        return corrections.get(t, t)
 
     def parse(self, layout: Layout):
 
@@ -24,7 +34,7 @@ class IDBackParser:
             # 情况1：同块，例如：签发机关郑州市公安局
             text = authority_line.text.replace("签发机关", "", 1).strip()
             if text:
-                data["authority"] = text
+                data["authority"] = self._normalize_authority(text)
 
             # 情况2：右侧
             if not data["authority"]:
@@ -40,7 +50,7 @@ class IDBackParser:
                     authority_parts.append(t)
 
                 if authority_parts:
-                    data["authority"] = "".join(authority_parts)
+                    data["authority"] = self._normalize_authority("".join(authority_parts))
 
             # 情况3：下方
             if not data["authority"]:
@@ -50,7 +60,7 @@ class IDBackParser:
                         continue
                     if "有效期限" in t:
                         break
-                    data["authority"] = t
+                    data["authority"] = self._normalize_authority(t)
                     break
 
         # 情况4：全文回退
@@ -58,7 +68,7 @@ class IDBackParser:
             full_text = "".join(layout.texts() or []).replace(" ", "").replace("\n", "")
             m = re.search(r"签发机关(.+?)(有效期限|$)", full_text)
             if m:
-                data["authority"] = m.group(1).strip()
+                data["authority"] = self._normalize_authority(m.group(1).strip())
 
         # ---------- 有效期限 ----------
 

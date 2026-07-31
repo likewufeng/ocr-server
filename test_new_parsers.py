@@ -126,8 +126,27 @@ def test_id_front_with_split_address_and_nation():
     assert result["id_number"] == "411221199108152534"
     print("ID Front Split Address Test Passed!")
 
+def test_id_back_with_missing_authority_prefix():
+    print("\n--- Testing ID Back with Missing Authority Prefix ---")
+    lines = [
+        OCRLine(text="中华人民共和国", left=886, top=231, right=1556, bottom=365, score=0.9979723691940308),
+        OCRLine(text="居民身份证", left=832, top=353, right=1598, bottom=531, score=0.9991973638534546),
+        OCRLine(text="签发机关池县公安局", left=738, top=693, right=1240, bottom=798, score=0.9944436550140381),
+        OCRLine(text="有效期限20190624-20390624", left=729, top=799, right=1461, bottom=911, score=0.9621346592903137),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("ID Back Parsed Result:")
+    print(result)
+    assert result["type"] == "id_back"
+    assert result["authority"] == "渑池县公安局"
+    assert result["valid_date"] == "2019.06.24-2039.06.24"
+    print("ID Back Authority Prefix Test Passed!")
+
 if __name__ == "__main__":
     test_id_front_with_split_id_label()
     test_id_front_with_split_address_and_nation()
+    test_id_back_with_missing_authority_prefix()
     test_bank_card_with_typos()
     test_invoice_with_typos()
