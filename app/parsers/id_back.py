@@ -1,6 +1,7 @@
 import re
 
 from app.utils.layout import Layout
+from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 class IDBackParser:
@@ -8,12 +9,7 @@ class IDBackParser:
         if not text:
             return ""
 
-        t = text.strip().replace(" ", "")
-        corrections = {
-            "池县公安局": "渑池县公安局",
-        }
-
-        return corrections.get(t, t)
+        return normalize_known_admin_text(text)
 
     def parse(self, layout: Layout):
 

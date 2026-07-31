@@ -10,6 +10,7 @@
 import re
 
 from app.utils.layout import Layout
+from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 class IDFrontParser:
@@ -165,7 +166,7 @@ class IDFrontParser:
                 addr_parts.append(text)
                 current_bottom = max(current_bottom, line.bottom)
 
-            data["address"] = "".join(addr_parts)
+            data["address"] = normalize_known_admin_text("".join(addr_parts))
 
         # ---------------- 身份证号 ----------------
 

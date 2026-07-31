@@ -18,6 +18,7 @@ fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
+    use_doc_preprocessor = not use_fine_tuned
     text_detection_config = {
         "model_name": "PP-OCRv5_server_det",
         # 官方 PP-OCRv5 默认值是 1.5；2.0 是为了银行卡微调检测模型扩大检测框。
@@ -26,10 +27,10 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     if use_fine_tuned:
         text_detection_config["model_dir"] = fine_tuned_model_path
 
-    return {
+    config = {
         "pipeline_name": "OCR",
         "text_type": "general",
-        "use_doc_preprocessor": False,
+        "use_doc_preprocessor": use_doc_preprocessor,
         "use_textline_orientation": False,
         "batch_size": 1,
         "SubModules": {
@@ -40,12 +41,34 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
         },
     }
 
+    if use_doc_preprocessor:
+        config["SubPipelines"] = {
+            "DocPreprocessor": {
+                "pipeline_name": "doc_preprocessor",
+                "use_doc_orientation_classify": True,
+                "use_doc_unwarping": True,
+                "SubModules": {
+                    "DocOrientationClassify": {
+                        "module_name": "doc_text_orientation",
+                        "model_name": "PP-LCNet_x1_0_doc_ori",
+                    },
+                    "DocUnwarping": {
+                        "module_name": "image_unwarping",
+                        "model_name": "UVDoc",
+                    },
+                },
+            },
+        }
+
+    return config
+
 
 class OCRService:
 
     def __init__(self):
         self.pipeline = None
         self.layout_pipeline = None
+        self.pipeline_uses_fine_tuned_detector = False
 
     def initialize(self):
         if self.pipeline is not None:
@@ -59,6 +82,7 @@ class OCRService:
                     pipeline="OCR",
                     config=_build_ocr_config(use_fine_tuned=True),
                 )
+                self.pipeline_uses_fine_tuned_detector = True
                 logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
                 return
             except Exception as exc:
@@ -69,6 +93,7 @@ class OCRService:
             pipeline="OCR",
             config=_build_ocr_config(use_fine_tuned=False),
         )
+        self.pipeline_uses_fine_tuned_detector = False
         logger.info("PaddleX OCR Pipeline Ready with official detector.")
 
     def initialize_layout_pipeline(self):
@@ -80,9 +105,6 @@ class OCRService:
             logger.info("Initializing PaddleX OCR Layout Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
             layout_config = _build_ocr_config(use_fine_tuned=True)
-            layout_config.update({
-                "use_doc_preprocessor": False,
-            })
 
             try:
                 self.layout_pipeline = create_pipeline(
@@ -96,9 +118,6 @@ class OCRService:
 
         logger.info("Initializing PaddleX OCR Layout Pipeline with official detector.")
         layout_config = _build_ocr_config(use_fine_tuned=False)
-        layout_config.update({
-            "use_doc_preprocessor": False,
-        })
         self.layout_pipeline = create_pipeline(
             pipeline="OCR",
             config=layout_config,
@@ -216,10 +235,14 @@ class OCRService:
         # 图片预处理
         temp_path = None
         try:
-            temp_path = self.preprocess_image(image_path)
+            if self.pipeline_uses_fine_tuned_detector:
+                temp_path = self.preprocess_image(image_path)
+                ocr_input_path = temp_path
+            else:
+                ocr_input_path = image_path
 
             # OCR 识别
-            for result in self.pipeline.predict(temp_path):
+            for result in self.pipeline.predict(ocr_input_path):
 
                 # 置信度过滤
                 texts = []
