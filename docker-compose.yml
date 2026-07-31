@@ -12,6 +12,7 @@ services:
     volumes:
       - ./:/app
       - ./data/uploads:/app/data/uploads
+      - ./data/outputs:/app/data/outputs
       - ./models:/root/.paddlex
       - ./data/logs:/app/data/logs
 

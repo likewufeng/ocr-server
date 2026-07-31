@@ -22,15 +22,25 @@ HOST = os.getenv("HOST")
 
 PORT = int(os.getenv("PORT"))
 
-UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR")
+UPLOAD_DIR = BASE_DIR / os.getenv("UPLOAD_DIR", "data/uploads")
 
-MODEL_DIR = BASE_DIR / os.getenv("MODEL_DIR")
+OUTPUT_DIR = BASE_DIR / os.getenv("OUTPUT_DIR", "data/outputs")
 
-LOG_DIR = BASE_DIR / os.getenv("LOG_DIR")
+MODEL_DIR = BASE_DIR / os.getenv("MODEL_DIR", "models")
+
+LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
+
+DYNAMIC_FILE_RETENTION_DAYS = int(os.getenv("DYNAMIC_FILE_RETENTION_DAYS", "1"))
+
+LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "3"))
+
+CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "3600"))
 
 OCR_USE_FINE_TUNED_MODEL = _env_bool("OCR_USE_FINE_TUNED_MODEL", True)
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 

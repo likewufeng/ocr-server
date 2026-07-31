@@ -1,6 +1,7 @@
 from typing import Any
 import re
 import os
+from pathlib import Path
 import cv2
 import numpy as np
 
@@ -124,7 +125,9 @@ class OCRService:
         )
         logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
 
-    def preprocess_image(self, image_path: str) -> str:
+    def preprocess_image(
+        self, image_path: str, output_dir: str | Path | None = None
+    ) -> str:
         """
         图片预处理：自动增强图片质量
         返回预处理后的临时文件路径
@@ -148,12 +151,17 @@ class OCRService:
         sharpened = cv2.convertScaleAbs(sharpened, alpha=1.2, beta=30)
 
         # 保存临时文件
-        temp_dir = os.path.join(os.path.dirname(image_path), "temp_preprocessed")
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_path = os.path.join(temp_dir, f"enhanced_{os.path.basename(image_path)}")
-        cv2.imwrite(temp_path, sharpened)
+        temp_dir = (
+            Path(output_dir)
+            if output_dir
+            else Path(image_path).parent / "temp_preprocessed"
+        )
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / f"preprocessed_{Path(image_path).name}"
+        if not cv2.imwrite(str(temp_path), sharpened):
+            raise OSError(f"Failed to save preprocessed image: {temp_path}")
 
-        return temp_path
+        return str(temp_path)
 
     @staticmethod
     def _looks_like_alphanumeric_code(text: str) -> bool:
@@ -217,7 +225,13 @@ class OCRService:
 
         return processed
 
-    def recognize(self, image_path: str, min_score: float = 0.7) -> dict[str, Any]:
+    def recognize(
+        self,
+        image_path: str,
+        min_score: float = 0.7,
+        request_id: str | None = None,
+        output_dir: str | Path | None = None,
+    ) -> dict[str, Any]:
         """
         OCR 识别接口（带优化）
         
@@ -234,10 +248,12 @@ class OCRService:
 
         # 图片预处理
         temp_path = None
+        request_logger = logger.bind(request_id=request_id or "-")
         try:
             if self.pipeline_uses_fine_tuned_detector:
-                temp_path = self.preprocess_image(image_path)
+                temp_path = self.preprocess_image(image_path, output_dir=output_dir)
                 ocr_input_path = temp_path
+                request_logger.info("Preprocessed image saved: {}", temp_path)
             else:
                 ocr_input_path = image_path
 
@@ -281,7 +297,7 @@ class OCRService:
 
         finally:
             # 清理临时文件
-            if temp_path and os.path.exists(temp_path):
+            if temp_path and output_dir is None and os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
                 except Exception as e:
