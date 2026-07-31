@@ -12,6 +12,13 @@ from app.utils.layout import Layout
 class BankCardParser:
     """银行卡解析器"""
 
+    KNOWN_BANK_NAMES = [
+        "中国工商银行", "中国农业银行", "中国银行", "中国建设银行", "交通银行",
+        "招商银行", "中信银行", "中国光大银行", "华夏银行", "中国民生银行",
+        "广发银行", "平安银行", "兴业银行", "上海浦东发展银行", "浦发银行",
+        "中国邮政储蓄银行", "邮政储蓄银行",
+    ]
+
     def _clean_to_digits_with_lookalikes(self, text: str) -> str:
         """将文字转换为纯数字，同时矫正形似的英文字母"""
         if not text:
@@ -67,6 +74,24 @@ class BankCardParser:
         # ---------------- 2. 提取银行名称 ----------------
         bank_name_found = ""
         for line in all_lines:
+            if "银行" not in line.text:
+                continue
+
+            row_text = "".join(
+                item.text.strip()
+                for item in layout.same_row(line, tolerance=30)
+                if (item.text or "").strip()
+            )
+            for name in self.KNOWN_BANK_NAMES:
+                if name in row_text:
+                    bank_name_found = name
+                    break
+            if bank_name_found:
+                break
+
+        for line in all_lines:
+            if bank_name_found:
+                break
             text = line.text.strip()
             if "银行" in text and not any(kw in text for kw in ["卡号", "账号", "电话", "热线", "客服", "号码"]):
                 match = re.search(r"([A-Za-z\u4e00-\u9fff]*?银行)", text)
@@ -138,7 +163,7 @@ class BankCardParser:
                 
             text = clean_valid_text(line.text)
             # 匹配 01-12 月份，以及 20-39 年份
-            match = re.search(r"\b(0[1-9]|1[0-2])\s*/\s*([2-3][0-9])\b", text)
+            match = re.search(r"(?<!\d)(0[1-9]|1[0-2])\s*/\s*([2-3][0-9])(?!\d)", text)
             if match:
                 valid_date_found = f"{match.group(1)}/{match.group(2)}"
                 break
@@ -162,7 +187,7 @@ class BankCardParser:
                 valid_date_found = f"{match.group(1)}/{match.group(2)}"
             else:
                 # 尝试无斜杠连笔 4 位数纠错 (比如 1229)
-                match_digits = re.search(r"\b(0[1-9]|1[0-2])([2-3][0-9])\b", cleaned_joined)
+                match_digits = re.search(r"(?<!\d)(0[1-9]|1[0-2])([2-3][0-9])(?!\d)", cleaned_joined)
                 if match_digits:
                     valid_date_found = f"{match_digits.group(1)}/{match_digits.group(2)}"
 

@@ -16,6 +16,7 @@ from statistics import median
 from typing import Optional
 
 from app.utils.layout import Layout
+from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 # ------------------------------------------------------------------ #
@@ -52,6 +53,7 @@ def fix_credit_code(raw: str) -> str:
     - idx 2~7 纯数字位：字母转数字
     - 其余混合位：只修正常见非法字符
     """
+    raw = (raw or "").strip().upper()
     if len(raw) != 18 or _validate_uscc(raw):
         return raw
 
@@ -244,7 +246,14 @@ class BusinessParser:
 
         def is_date_text(text: str) -> bool:
             t = (text or "").strip()
-            return bool(re.fullmatch(r"\d{4}年\d{2}月\d{2}日", t))
+            return bool(re.fullmatch(r"\d{4}年\d{1,2}月\d{1,2}日", t))
+
+        def normalize_chinese_date(text: str) -> str:
+            m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", (text or "").strip())
+            if not m:
+                return (text or "").strip()
+            year, month, day = m.groups()
+            return f"{year}年{int(month):02d}月{int(day):02d}日"
 
         def looks_like_capital(text: str) -> bool:
             t = (text or "").strip()
@@ -484,7 +493,8 @@ class BusinessParser:
             prefix = ""
             if province and not addr.startswith(province):
                 prefix += province
-            if city and city not in addr:
+            has_province_prefix = bool(re.match(r"^[\u4e00-\u9fff]{2,6}省", addr))
+            if city and city not in addr and (prefix or not has_province_prefix):
                 prefix += city
             if district and district not in addr:
                 prefix += district
@@ -498,7 +508,7 @@ class BusinessParser:
         def extract_credit_code() -> str:
             fallback = ""
             for line in all_lines:
-                for m in re.finditer(r"[0-9A-Z]{18}", line.text or ""):
+                for m in re.finditer(r"[0-9A-Za-z]{18}", line.text or ""):
                     candidate = fix_credit_code(m.group())
                     if _validate_uscc(candidate):
                         return candidate
@@ -509,7 +519,7 @@ class BusinessParser:
                 return fallback
 
             joined = "".join(line.text or "" for line in all_lines)
-            m = re.search(r"[0-9A-Z]{18}", joined)
+            m = re.search(r"[0-9A-Za-z]{18}", joined)
             return fix_credit_code(m.group()) if m else ""
 
         data["credit_code"] = extract_credit_code()
@@ -636,6 +646,7 @@ class BusinessParser:
             validator=is_date_text,
             row_scale=1.0,
         )
+        data["establish_date"] = normalize_chinese_date(data["establish_date"])
 
         # ---------------------------------------------------------- #
         #  地址                                                        #
@@ -740,13 +751,13 @@ class BusinessParser:
 
             boundary_top = find_boundary_top(
                 addr_anchor.top,
-                keywords=["登记机关", "市场监督", "国家企业信用信息公示系统网址", "国家市场监督管理总局监制"],
+                keywords=["经营范围", "登记机关", "市场监督", "国家企业信用信息公示系统网址", "国家市场监督管理总局监制"],
                 col_left=addr_col_left,
                 col_right=addr_col_right,
             )
 
             stop_keywords = [
-                "登记机关", "市场监督",
+                "经营范围", "登记机关", "市场监督",
                 "国家企业信用信息公示系统网址", "http", "https",
             ]
 
@@ -795,7 +806,7 @@ class BusinessParser:
                 nearby_fragments=nearby_fragments,
             )
 
-            return address
+            return normalize_known_admin_text(address)
 
         data["address"] = extract_address()
 

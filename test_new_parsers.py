@@ -39,6 +39,27 @@ def test_bank_card_with_typos():
     assert result["valid_date"] == "12/29" # '.'->'/', Q->9 纠正成功
     print("Bank Card Typos Test Passed!")
 
+def test_bank_card_with_split_bank_name():
+    print("\n--- Testing Bank Card with Split Bank Name ---")
+    lines = [
+        OCRLine(text="中国", left=40, top=10, right=90, bottom=35, score=0.99),
+        OCRLine(text="建设银行", left=95, top=10, right=190, bottom=35, score=0.99),
+        OCRLine(text="6222 0210 0112 3455 781", left=50, top=100, right=430, bottom=130, score=0.99),
+        OCRLine(text="VALID", left=180, top=150, right=230, bottom=175, score=0.99),
+        OCRLine(text="THRU", left=235, top=150, right=285, bottom=175, score=0.99),
+        OCRLine(text="1229", left=290, top=150, right=350, bottom=175, score=0.99),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("Bank Card Split Bank Parsed Result:")
+    print(result)
+    assert result["type"] == "bank_card"
+    assert result["bank_name"] == "中国建设银行"
+    assert result["card_number"] == "6222021001123455781"
+    assert result["valid_date"] == "12/29"
+    print("Bank Card Split Bank Test Passed!")
+
 def test_invoice_with_typos():
     print("\n--- Testing VAT Invoice with OCR Typos ---")
     lines = [
@@ -79,6 +100,68 @@ def test_invoice_with_typos():
     assert result["total_tax"] == "60.00" # O->0 纠正成功
     assert result["amount_with_tax"] == "1060.00" # O->0 纠正成功
     print("VAT Invoice Typos Test Passed!")
+
+def test_invoice_with_split_name_labels():
+    print("\n--- Testing VAT Invoice with Split Name Labels ---")
+    lines = [
+        OCRLine(text="发票代码:1100192321", left=50, top=10, right=250, bottom=30, score=0.99),
+        OCRLine(text="发票号码:01234567", left=300, top=10, right=500, bottom=30, score=0.99),
+        OCRLine(text="开票日期", left=50, top=50, right=130, bottom=70, score=0.99),
+        OCRLine(text="2026-7-8", left=140, top=50, right=230, bottom=70, score=0.99),
+        OCRLine(text="购买方", left=50, top=100, right=100, bottom=120, score=0.99),
+        OCRLine(text="名", left=110, top=100, right=130, bottom=120, score=0.99),
+        OCRLine(text="称", left=135, top=100, right=155, bottom=120, score=0.99),
+        OCRLine(text="腾讯科技(深圳)有限公司", left=165, top=100, right=360, bottom=120, score=0.99),
+        OCRLine(text="识别号", left=110, top=130, right=170, bottom=150, score=0.99),
+        OCRLine(text="91330100717621111X", left=180, top=130, right=350, bottom=150, score=0.99),
+        OCRLine(text="销售方", left=50, top=200, right=100, bottom=220, score=0.99),
+        OCRLine(text="名", left=110, top=200, right=130, bottom=220, score=0.99),
+        OCRLine(text="称", left=135, top=200, right=155, bottom=220, score=0.99),
+        OCRLine(text="百度在线网络技术有限公司", left=165, top=200, right=360, bottom=220, score=0.99),
+        OCRLine(text="识别号", left=110, top=230, right=170, bottom=250, score=0.99),
+        OCRLine(text="91110115781312345Y", left=180, top=230, right=350, bottom=250, score=0.99),
+        OCRLine(text="合计", left=50, top=300, right=100, bottom=320, score=0.99),
+        OCRLine(text="1000.00", left=200, top=300, right=280, bottom=320, score=0.99),
+        OCRLine(text="60.00", left=300, top=300, right=380, bottom=320, score=0.99),
+        OCRLine(text="价税合计", left=50, top=350, right=120, bottom=370, score=0.99),
+        OCRLine(text="小写1060.00", left=200, top=350, right=320, bottom=370, score=0.99),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("VAT Invoice Split Labels Parsed Result:")
+    print(result)
+    assert result["type"] == "invoice"
+    assert result["issue_date"] == "2026年07月08日"
+    assert result["buyer_name"] == "腾讯科技(深圳)有限公司"
+    assert result["seller_name"] == "百度在线网络技术有限公司"
+    assert result["buyer_tax_id"] == "91330100717621111X"
+    assert result["seller_tax_id"] == "91110115781312345Y"
+    print("VAT Invoice Split Labels Test Passed!")
+
+def test_business_license_with_common_ocr_variants():
+    print("\n--- Testing Business License with Common OCR Variants ---")
+    lines = [
+        OCRLine(text="营业执照", left=300, top=20, right=500, bottom=60, score=0.99),
+        OCRLine(text="统一社会信用代码91410100macer7b67p", left=50, top=90, right=420, bottom=120, score=0.99),
+        OCRLine(text="名称测试科技有限公司", left=50, top=150, right=360, bottom=180, score=0.99),
+        OCRLine(text="类型有限责任公司", left=50, top=190, right=330, bottom=220, score=0.99),
+        OCRLine(text="法定代表人测试人", left=50, top=230, right=300, bottom=260, score=0.99),
+        OCRLine(text="注册资本壹佰万元整", left=400, top=230, right=620, bottom=260, score=0.99),
+        OCRLine(text="成立日期2023年4月1日", left=400, top=270, right=650, bottom=300, score=0.99),
+        OCRLine(text="住所河南省关池县测试镇1号", left=50, top=310, right=420, bottom=340, score=0.99),
+        OCRLine(text="经营范围软件开发", left=50, top=360, right=280, bottom=390, score=0.99),
+    ]
+    layout = Layout(lines)
+    parser = OCRParser()
+    result = parser.parse(layout)
+    print("Business License Variants Parsed Result:")
+    print(result)
+    assert result["type"] == "business_license"
+    assert result["credit_code"] == "91410100MACER7B67P"
+    assert result["establish_date"] == "2023年04月01日"
+    assert result["address"] == "河南省渑池县测试镇1号"
+    print("Business License Variants Test Passed!")
 
 def test_id_front_with_split_id_label():
     print("\n--- Testing ID Front with Split ID Label ---")
@@ -186,4 +269,7 @@ if __name__ == "__main__":
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()
+    test_bank_card_with_split_bank_name()
     test_invoice_with_typos()
+    test_invoice_with_split_name_labels()
+    test_business_license_with_common_ocr_variants()

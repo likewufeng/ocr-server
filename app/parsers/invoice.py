@@ -113,6 +113,18 @@ class InvoiceParser:
                     return text.replace(label, "", 1).lstrip(":：").strip()
             return text.strip()
 
+        def normalize_issue_date(text: str) -> str:
+            t = (text or "").strip()
+            m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", t)
+            if m:
+                year, month, day = m.groups()
+                return f"{year}年{int(month):02d}月{int(day):02d}日"
+            m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", t)
+            if m:
+                year, month, day = m.groups()
+                return f"{year}年{int(month):02d}月{int(day):02d}日"
+            return t
+
         # ---------------- 1. 发票代码 ----------------
         invoice_code_found = ""
         code_line = layout.find_any("发票代码", "代码")
@@ -196,7 +208,7 @@ class InvoiceParser:
             if m:
                 issue_date_found = m.group(1)
 
-        data["issue_date"] = issue_date_found
+        data["issue_date"] = normalize_issue_date(issue_date_found)
 
         # ---------------- 4. 购买方/销售方区域划分 ----------------
         buyer_anchor = layout.find_any("购买方", "购 买 方")
@@ -204,6 +216,11 @@ class InvoiceParser:
 
         name_lines = layout.find_all("名称")
         name_lines.extend(layout.find_all("名 称"))
+        name_lines.extend(
+            line for line in all_lines
+            if (line.text or "").strip() == "名"
+            and any((item.text or "").strip() == "称" for item in layout.right_of(line, tolerance=max(15, int(base_h * 0.8))))
+        )
         name_lines = sorted(list({id(line): line for line in name_lines}.values()), key=lambda x: x.top)
 
         tax_id_lines = layout.find_all("纳税人识别号")
@@ -213,7 +230,7 @@ class InvoiceParser:
         def extract_value_right_of_label(label_line: OCRLine) -> str:
             if not label_line:
                 return ""
-            val = strip_label(label_line.text, "名称", "名 称", "纳税人识别号", "识别号")
+            val = strip_label(label_line.text, "名称", "名 称", "纳税人识别号", "识别号", "名", "称", "纳税人")
             if val and len(val) > 2:
                 return val
             rights = layout.right_of(label_line, tolerance=max(15, int(base_h * 0.8)))
@@ -221,9 +238,16 @@ class InvoiceParser:
                 parts = []
                 for item in rights:
                     t = item.text.strip()
+                    if t in {"名", "称", "纳税人", "识别号"}:
+                        continue
+                    for prefix in ("称", "识别号", "纳税人识别号"):
+                        if t.startswith(prefix):
+                            t = t[len(prefix):].lstrip(":：").strip()
+                            break
                     if any(kw in t for kw in ["纳税人识别号", "识别号", "地址", "电话", "开户行", "账号"]):
                         break
-                    parts.append(t)
+                    if t:
+                        parts.append(t)
                 return "".join(parts).strip()
             return ""
 
