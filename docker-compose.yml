@@ -11,9 +11,9 @@ services:
 
     volumes:
       - ./:/app
-      - ./uploads:/app/uploads
+      - ./data/uploads:/app/data/uploads
       - ./models:/root/.paddlex
-      - ./logs:/app/logs
+      - ./data/logs:/app/data/logs
 
     environment:
       - WATCHFILES_FORCE_POLLING=true
