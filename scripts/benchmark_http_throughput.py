@@ -78,7 +78,7 @@ def invoke(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="OCR HTTP 并发吞吐基准工具")
-    parser.add_argument("--url", required=True, help="服务根地址，如 http://127.0.0.1:8000")
+    parser.add_argument("--url", required=True, help="服务根地址，如 http://127.0.0.1:18081")
     parser.add_argument("--image", required=True, type=Path)
     parser.add_argument("--document-type")
     parser.add_argument("--requests", type=int, default=8)

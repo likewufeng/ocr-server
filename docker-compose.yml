@@ -7,7 +7,7 @@ services:
     container_name: paddle-ocr-server
 
     ports:
-      - "8000:8000"
+      - "18081:8000"
 
     volumes:
       - ./data/uploads:/app/data/uploads

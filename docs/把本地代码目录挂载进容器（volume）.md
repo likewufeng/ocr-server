@@ -24,7 +24,7 @@ services:
     build: .
     container_name: ocr-server
     ports:
-      - "8000:8000"
+      - "18081:8000"
     volumes:
       # 把本地代码挂载进容器
       - ./:/app
