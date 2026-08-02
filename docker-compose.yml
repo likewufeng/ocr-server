@@ -10,15 +10,21 @@ services:
       - "8000:8000"
 
     volumes:
-      - ./:/app
       - ./data/uploads:/app/data/uploads
       - ./data/outputs:/app/data/outputs
+      - ./models:/app/models
       - ./models:/root/.paddlex
       - ./data/logs:/app/data/logs
 
     environment:
-      - WATCHFILES_FORCE_POLLING=true
+      OCR_MODEL_PROFILE: ${OCR_MODEL_PROFILE:-mobile}
+      OCR_DEVICE: cpu
+      OCR_ENABLE_MKLDNN: ${OCR_ENABLE_MKLDNN:-true}
+      OCR_CPU_THREADS: ${OCR_CPU_THREADS:-8}
+      OCR_TEXT_RECOGNITION_BATCH_SIZE: ${OCR_TEXT_RECOGNITION_BATCH_SIZE:-6}
+      OMP_NUM_THREADS: ${OCR_CPU_THREADS:-8}
+      MKL_NUM_THREADS: ${OCR_CPU_THREADS:-8}
 
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app --reload-include "*.py"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
     restart: unless-stopped

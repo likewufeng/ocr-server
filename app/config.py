@@ -42,6 +42,18 @@ OCR_MODEL_PROFILE = os.getenv("OCR_MODEL_PROFILE", "server").strip().lower()
 if OCR_MODEL_PROFILE not in {"mobile", "server"}:
     raise ValueError("OCR_MODEL_PROFILE must be 'mobile' or 'server'")
 
+OCR_DEVICE = os.getenv("OCR_DEVICE", "cpu").strip().lower()
+
+OCR_ENABLE_MKLDNN = _env_bool("OCR_ENABLE_MKLDNN", True)
+
+OCR_CPU_THREADS = max(
+    1, int(os.getenv("OCR_CPU_THREADS", str(min(8, os.cpu_count() or 1))))
+)
+
+OCR_TEXT_RECOGNITION_BATCH_SIZE = max(
+    1, int(os.getenv("OCR_TEXT_RECOGNITION_BATCH_SIZE", "6"))
+)
+
 OCR_USE_DOC_ORIENTATION = _env_bool("OCR_USE_DOC_ORIENTATION", True)
 
 OCR_USE_DOC_UNWARPING = _env_bool("OCR_USE_DOC_UNWARPING", False)

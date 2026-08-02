@@ -2,3 +2,7 @@
 __pycache__
 .git
 uploads
+data
+models/official_models
+models/locks
+models/temp

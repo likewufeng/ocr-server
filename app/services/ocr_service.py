@@ -7,12 +7,17 @@ import cv2
 import numpy as np
 
 from paddlex import create_pipeline
+from paddlex.inference.utils.pp_option import PaddlePredictorOption
 
 from app.utils.logger import logger
 
 # 1. 确保在文件顶部导入了我们在 config.py 里配置好的 MODEL_DIR
 from app.config import MODEL_DIR
+from app.config import OCR_CPU_THREADS
+from app.config import OCR_DEVICE
+from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_MODEL_PROFILE
+from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
 from app.config import OCR_USE_DOC_ORIENTATION
 from app.config import OCR_USE_DOC_UNWARPING
 from app.config import OCR_USE_FINE_TUNED_MODEL
@@ -48,6 +53,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
             "TextDetection": text_detection_config,
             "TextRecognition": {
                 "model_name": official_recognition_model,
+                "batch_size": OCR_TEXT_RECOGNITION_BATCH_SIZE,
             },
         },
     }
@@ -77,6 +83,20 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     return config
 
 
+def _create_ocr_pipeline(config: dict[str, Any]):
+    create_options = {
+        "pipeline": "OCR",
+        "config": config,
+        "device": OCR_DEVICE,
+    }
+    if OCR_DEVICE == "cpu":
+        create_options["pp_option"] = PaddlePredictorOption(
+            run_mode="mkldnn" if OCR_ENABLE_MKLDNN else "paddle",
+            cpu_threads=OCR_CPU_THREADS,
+        )
+    return create_pipeline(**create_options)
+
+
 class OCRService:
 
     def __init__(self):
@@ -92,9 +112,8 @@ class OCRService:
             logger.info("Initializing PaddleX OCR Pipeline with fine-tuned detector: {}", fine_tuned_model_path)
 
             try:
-                self.pipeline = create_pipeline(
-                    pipeline="OCR",
-                    config=_build_ocr_config(use_fine_tuned=True),
+                self.pipeline = _create_ocr_pipeline(
+                    _build_ocr_config(use_fine_tuned=True)
                 )
                 self.pipeline_uses_fine_tuned_detector = True
                 logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
@@ -103,12 +122,16 @@ class OCRService:
                 logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
 
         logger.info(
-            "Initializing PaddleX OCR Pipeline with official {} models.",
+            "Initializing PaddleX OCR Pipeline: profile={}, device={}, "
+            "cpu_threads={}, rec_batch_size={}, mkldnn={}.",
             OCR_MODEL_PROFILE,
+            OCR_DEVICE,
+            OCR_CPU_THREADS,
+            OCR_TEXT_RECOGNITION_BATCH_SIZE,
+            OCR_ENABLE_MKLDNN,
         )
-        self.pipeline = create_pipeline(
-            pipeline="OCR",
-            config=_build_ocr_config(use_fine_tuned=False),
+        self.pipeline = _create_ocr_pipeline(
+            _build_ocr_config(use_fine_tuned=False)
         )
         self.pipeline_uses_fine_tuned_detector = False
         logger.info(
@@ -127,10 +150,7 @@ class OCRService:
             layout_config = _build_ocr_config(use_fine_tuned=True)
 
             try:
-                self.layout_pipeline = create_pipeline(
-                    pipeline="OCR",
-                    config=layout_config,
-                )
+                self.layout_pipeline = _create_ocr_pipeline(layout_config)
                 logger.info("PaddleX OCR Layout Pipeline Ready with fine-tuned detector.")
                 return
             except Exception as exc:
@@ -138,10 +158,7 @@ class OCRService:
 
         logger.info("Initializing PaddleX OCR Layout Pipeline with official detector.")
         layout_config = _build_ocr_config(use_fine_tuned=False)
-        self.layout_pipeline = create_pipeline(
-            pipeline="OCR",
-            config=layout_config,
-        )
+        self.layout_pipeline = _create_ocr_pipeline(layout_config)
         logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
 
     def preprocess_image(
