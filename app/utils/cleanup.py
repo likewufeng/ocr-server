@@ -9,7 +9,7 @@ from app.config import (
     OUTPUT_DIR,
     UPLOAD_DIR,
 )
-from app.utils.logger import logger
+from app.utils.logger import logger, reset_expired_active_log
 
 
 def _remove_expired_entries(directory: Path, retention_days: int) -> int:
@@ -38,11 +38,11 @@ def _remove_expired_entries(directory: Path, retention_days: int) -> int:
 
 def _remove_expired_logs() -> int:
     cutoff = time.time() - LOG_RETENTION_DAYS * 24 * 60 * 60
-    removed = 0
+    removed = 1 if reset_expired_active_log(cutoff) else 0
 
     for entry in LOG_DIR.iterdir():
         try:
-            if entry.name == "ocr.log" or not entry.is_file():
+            if not entry.is_file():
                 continue
             if entry.stat().st_mtime >= cutoff:
                 continue
