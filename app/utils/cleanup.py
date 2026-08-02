@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 from app.config import (
+    CACHE_DIR,
     DYNAMIC_FILE_RETENTION_DAYS,
     LOG_DIR,
     LOG_RETENTION_DAYS,
@@ -63,12 +64,16 @@ def cleanup_runtime_data() -> None:
     outputs_removed = _remove_expired_entries(
         OUTPUT_DIR, DYNAMIC_FILE_RETENTION_DAYS
     )
+    cache_removed = _remove_expired_entries(
+        CACHE_DIR, DYNAMIC_FILE_RETENTION_DAYS
+    )
     logs_removed = _remove_expired_logs()
 
-    if uploads_removed or outputs_removed or logs_removed:
+    if uploads_removed or outputs_removed or cache_removed or logs_removed:
         logger.info(
-            "Runtime cleanup completed: uploads={}, outputs={}, logs={}",
+            "Runtime cleanup completed: uploads={}, outputs={}, cache={}, logs={}",
             uploads_removed,
             outputs_removed,
+            cache_removed,
             logs_removed,
         )

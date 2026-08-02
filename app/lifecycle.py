@@ -42,4 +42,5 @@ async def lifespan(app: FastAPI):
     finally:
         cleanup_stop_event.set()
         cleanup_thread.join(timeout=5)
+        ocr_service.shutdown()
         logger.info("Service stopped, runtime cleanup thread closed.")

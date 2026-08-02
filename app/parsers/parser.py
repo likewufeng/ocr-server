@@ -27,9 +27,9 @@ class OCRParser:
             "invoice": InvoiceParser()
         }
 
-    def parse(self, layout: Layout):
-        # 1. 自动检测类型
-        doc_type = self.detector.detect(layout)
+    def parse(self, layout: Layout, document_type=None):
+        # 调用方明确给出类型时，跳过自动检测并直接走对应解析器。
+        doc_type = document_type or self.detector.detect(layout)
         
         # 2. 选择对应的解析器
         parser = self.parsers.get(doc_type)

@@ -10,12 +10,41 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 # 将 ocr-server 添加到系统路径，确保可以导入 app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 
 from app.utils.layout import Layout, OCRLine
 from app.parsers.parser import OCRParser
+from app.utils.ocr_cache import OCRCache
+
+
+def test_document_type_hint():
+    print("--- Testing Document Type Hint ---")
+    lines = [
+        OCRLine(text="姓名吴烽", left=50, top=20, right=180, bottom=45, score=0.99),
+        OCRLine(text="411221199108152534", left=50, top=80, right=320, bottom=110, score=0.99),
+    ]
+    parser = OCRParser()
+    assert parser.parse(Layout(lines))["type"] == "unknown"
+    hinted = parser.parse(Layout(lines), document_type="id_front")
+    assert hinted["type"] == "id_front"
+    assert hinted["name"] == "吴烽"
+    assert hinted["id_number"] == "411221199108152534"
+    print("Document Type Hint Test Passed!")
+
+
+def test_ocr_cache_round_trip():
+    print("\n--- Testing OCR Cache Round Trip ---")
+    with TemporaryDirectory() as temp_dir:
+        cache = OCRCache(Path(temp_dir), enabled=True)
+        result = {"texts": ["测试"], "scores": [0.99]}
+        assert cache.get("missing") is None
+        cache.set("sample", result)
+        assert cache.get("sample") == result
+    print("OCR Cache Round Trip Test Passed!")
 
 def test_bank_card_with_typos():
     print("--- Testing Bank Card with OCR Typos ---")
@@ -374,6 +403,8 @@ def test_id_back_with_wrong_authority_prefix():
     print("ID Back Wrong Authority Prefix Test Passed!")
 
 if __name__ == "__main__":
+    test_document_type_hint()
+    test_ocr_cache_round_trip()
     test_id_front_with_split_id_label()
     test_id_front_with_split_address_and_nation()
     test_id_front_with_admin_area_typo()

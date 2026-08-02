@@ -1,4 +1,7 @@
 from typing import Any, Optional, Union
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
 import re
 import os
 import time
@@ -15,8 +18,12 @@ from app.utils.logger import logger
 from app.config import MODEL_DIR
 from app.config import OCR_CPU_THREADS
 from app.config import OCR_DEVICE
+from app.config import OCR_ENABLE_DOC_ORIENTATION_MODEL
 from app.config import OCR_ENABLE_MKLDNN
+from app.config import OCR_CACHE_VERSION
 from app.config import OCR_MODEL_PROFILE
+from app.config import OCR_PREPROCESSED_JPEG_QUALITY
+from app.config import OCR_SAVE_PREPROCESSED_IMAGE
 from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
 from app.config import OCR_USE_DOC_ORIENTATION
 from app.config import OCR_USE_DOC_UNWARPING
@@ -27,11 +34,17 @@ fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
 official_detection_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_det"
 official_recognition_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_rec"
 
+DOCUMENT_DETECTION_SIDE_LIMITS = {
+    "id_front": 768,
+    "id_back": 768,
+}
+DEFAULT_DETECTION_SIDE_LIMIT = 960
+
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
     use_doc_preprocessor = not use_fine_tuned and (
-        OCR_USE_DOC_ORIENTATION or OCR_USE_DOC_UNWARPING
+        OCR_ENABLE_DOC_ORIENTATION_MODEL or OCR_USE_DOC_UNWARPING
     )
     text_detection_config = {
         "model_name": (
@@ -60,7 +73,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
 
     if use_doc_preprocessor:
         doc_preprocessor_modules = {}
-        if OCR_USE_DOC_ORIENTATION:
+        if OCR_ENABLE_DOC_ORIENTATION_MODEL:
             doc_preprocessor_modules["DocOrientationClassify"] = {
                 "module_name": "doc_text_orientation",
                 "model_name": "PP-LCNet_x1_0_doc_ori",
@@ -74,7 +87,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
         config["SubPipelines"] = {
             "DocPreprocessor": {
                 "pipeline_name": "doc_preprocessor",
-                "use_doc_orientation_classify": OCR_USE_DOC_ORIENTATION,
+                "use_doc_orientation_classify": OCR_ENABLE_DOC_ORIENTATION_MODEL,
                 "use_doc_unwarping": OCR_USE_DOC_UNWARPING,
                 "SubModules": doc_preprocessor_modules,
             },
@@ -103,6 +116,40 @@ class OCRService:
         self.pipeline = None
         self.layout_pipeline = None
         self.pipeline_uses_fine_tuned_detector = False
+        self._artifact_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="ocr-artifact"
+        )
+
+    @staticmethod
+    def _effective_orientation(auto_orientation: Optional[bool]) -> bool:
+        if auto_orientation is None:
+            return OCR_USE_DOC_ORIENTATION
+        return auto_orientation
+
+    @staticmethod
+    def _detection_side_limit(document_type: Optional[str]) -> int:
+        return DOCUMENT_DETECTION_SIDE_LIMITS.get(
+            document_type, DEFAULT_DETECTION_SIDE_LIMIT
+        )
+
+    def cache_signature(
+        self,
+        document_type: Optional[str],
+        auto_orientation: Optional[bool],
+        min_score: float = 0.7,
+    ) -> str:
+        settings = {
+            "version": OCR_CACHE_VERSION,
+            "profile": OCR_MODEL_PROFILE,
+            "fine_tuned": OCR_USE_FINE_TUNED_MODEL,
+            "orientation": self._effective_orientation(auto_orientation),
+            "unwarping": OCR_USE_DOC_UNWARPING,
+            "document_type": document_type,
+            "detection_side_limit": self._detection_side_limit(document_type),
+            "min_score": min_score,
+        }
+        serialized = json.dumps(settings, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
     def initialize(self):
         if self.pipeline is not None:
@@ -201,11 +248,30 @@ class OCRService:
 
     @staticmethod
     def _save_platform_preprocessed_image(
+        output_img: np.ndarray,
+        output_path: Path,
+        request_logger,
+    ) -> None:
+        if cv2.imwrite(
+            str(output_path),
+            output_img,
+            [cv2.IMWRITE_JPEG_QUALITY, OCR_PREPROCESSED_JPEG_QUALITY],
+        ):
+            request_logger.info(
+                "Platform preprocessed image saved asynchronously: {}", output_path
+            )
+        else:
+            request_logger.warning(
+                "Failed to save platform preprocessed image: {}", output_path
+            )
+
+    def _schedule_platform_preprocessed_image(
+        self,
         doc_preprocessor_res: dict[str, Any],
         output_dir: Optional[Union[str, Path]],
         request_logger,
     ) -> None:
-        if output_dir is None:
+        if output_dir is None or not OCR_SAVE_PREPROCESSED_IMAGE:
             return
 
         output_img = doc_preprocessor_res.get("output_img")
@@ -215,15 +281,21 @@ class OCRService:
             )
             return
 
-        output_path = Path(output_dir) / "preprocessed_platform.png"
-        if cv2.imwrite(str(output_path), output_img):
-            request_logger.info(
-                "Platform preprocessed image saved: {}", output_path
+        output_path = Path(output_dir) / "preprocessed_platform.jpg"
+        try:
+            self._artifact_executor.submit(
+                self._save_platform_preprocessed_image,
+                output_img,
+                output_path,
+                request_logger,
             )
-        else:
+        except RuntimeError as exc:
             request_logger.warning(
-                "Failed to save platform preprocessed image: {}", output_path
+                "Failed to schedule preprocessed image save: {}", exc
             )
+
+    def shutdown(self) -> None:
+        self._artifact_executor.shutdown(wait=True)
 
     @staticmethod
     def _looks_like_alphanumeric_code(text: str) -> bool:
@@ -293,6 +365,8 @@ class OCRService:
         min_score: float = 0.7,
         request_id: Optional[str] = None,
         output_dir: Optional[Union[str, Path]] = None,
+        document_type: Optional[str] = None,
+        auto_orientation: Optional[bool] = None,
     ) -> dict[str, Any]:
         """
         OCR 识别接口（带优化）
@@ -312,6 +386,8 @@ class OCRService:
         temp_path = None
         request_logger = logger.bind(request_id=request_id or "-")
         recognize_started_at = time.perf_counter()
+        effective_orientation = self._effective_orientation(auto_orientation)
+        detection_side_limit = self._detection_side_limit(document_type)
         try:
             if self.pipeline_uses_fine_tuned_detector:
                 temp_path = self.preprocess_image(image_path, output_dir=output_dir)
@@ -322,7 +398,26 @@ class OCRService:
 
             # OCR 识别
             prediction_started_at = time.perf_counter()
-            for result in self.pipeline.predict(ocr_input_path):
+            predict_options = {
+                "text_det_limit_side_len": detection_side_limit,
+                "text_det_limit_type": "max",
+            }
+            if not self.pipeline_uses_fine_tuned_detector:
+                predict_options.update(
+                    {
+                        "use_doc_orientation_classify": effective_orientation,
+                        "use_doc_unwarping": OCR_USE_DOC_UNWARPING,
+                    }
+                )
+
+            request_logger.info(
+                "OCR inference options: document_type={}, auto_orientation={}, "
+                "det_side_limit={}",
+                document_type or "auto",
+                effective_orientation,
+                detection_side_limit,
+            )
+            for result in self.pipeline.predict(ocr_input_path, **predict_options):
                 prediction_ms = (time.perf_counter() - prediction_started_at) * 1000
                 request_logger.info(
                     "PaddleX prediction completed: duration_ms={:.2f}", prediction_ms
@@ -345,8 +440,10 @@ class OCRService:
                 texts = self.postprocess_texts(texts)
 
                 doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
-                if not self.pipeline_uses_fine_tuned_detector:
-                    self._save_platform_preprocessed_image(
+                if not self.pipeline_uses_fine_tuned_detector and (
+                    effective_orientation or OCR_USE_DOC_UNWARPING
+                ):
+                    self._schedule_platform_preprocessed_image(
                         doc_preprocessor_res, output_dir, request_logger
                     )
 

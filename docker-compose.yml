@@ -12,6 +12,7 @@ services:
     volumes:
       - ./data/uploads:/app/data/uploads
       - ./data/outputs:/app/data/outputs
+      - ./data/cache:/app/data/cache
       - ./models:/app/models
       - ./models:/root/.paddlex
       - ./data/logs:/app/data/logs
@@ -22,6 +23,10 @@ services:
       OCR_ENABLE_MKLDNN: ${OCR_ENABLE_MKLDNN:-true}
       OCR_CPU_THREADS: ${OCR_CPU_THREADS:-8}
       OCR_TEXT_RECOGNITION_BATCH_SIZE: ${OCR_TEXT_RECOGNITION_BATCH_SIZE:-6}
+      OCR_ENABLE_DOC_ORIENTATION_MODEL: ${OCR_ENABLE_DOC_ORIENTATION_MODEL:-true}
+      OCR_USE_DOC_ORIENTATION: ${OCR_USE_DOC_ORIENTATION:-false}
+      OCR_SAVE_PREPROCESSED_IMAGE: ${OCR_SAVE_PREPROCESSED_IMAGE:-true}
+      OCR_CACHE_ENABLED: ${OCR_CACHE_ENABLED:-true}
       OMP_NUM_THREADS: ${OCR_CPU_THREADS:-8}
       MKL_NUM_THREADS: ${OCR_CPU_THREADS:-8}
 
