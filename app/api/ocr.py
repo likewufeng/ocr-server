@@ -158,17 +158,17 @@ async def ocr(
             "是否执行图片方向检测和自动旋转。true：适合手机拍摄、图片方向不确定"
             "的场景，会增加少量推理耗时；false：适合调用方已保证图片方向正确的"
             "场景，响应更快。不传时使用服务端 OCR_USE_DOC_ORIENTATION 配置，"
-            "当前默认值为 false。"
+            "当前默认值为 true。"
         ),
     ),
 ):
     """
     识别身份证、营业执照、银行卡和发票，并返回结构化字段。
 
-    推荐在调用方明确证件类型且图片方向正确时传入 `document_type`，同时保持
-    `auto_orientation=false`，可以减少自动判断和方向模型的推理开销。图片方向
-    不确定时设置 `auto_orientation=true`。相同图片和推理参数会复用一天内的 OCR
-    缓存，但每次调用仍会生成独立的 `request_id`。
+    默认会执行图片方向检测，适合手机拍摄等方向不可控的场景。调用方明确证件
+    类型时建议传入 `document_type`；只有在调用方能够保证图片方向正确时，才建议
+    显式设置 `auto_orientation=false` 来减少方向模型的推理开销。相同图片和推理
+    参数会复用一天内的 OCR 缓存，但每次调用仍会生成独立的 `request_id`。
     """
     request_id = get_request_id() or uuid.uuid4().hex
     request_logger = logger.bind(request_id=request_id)
