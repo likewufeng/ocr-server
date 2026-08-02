@@ -127,13 +127,49 @@ async def _recognize(
         return result, False
 
 
-@router.post("/ocr")
+@router.post(
+    "/ocr",
+    summary="证件 OCR 识别",
+    response_description="结构化证件识别结果",
+)
 async def ocr(
     response: Response,
-    file: UploadFile = File(...),
-    document_type: Optional[DocumentType] = Query(default=None),
-    auto_orientation: Optional[bool] = Query(default=None),
+    file: UploadFile = File(
+        ...,
+        description=(
+            "待识别的证件或票据图片。支持项目当前 OCR 能读取的 JPG、JPEG、"
+            "PNG、WEBP 等图片格式；原文件会按本次 request_id 保存到 "
+            "data/uploads/{request_id}/。"
+        ),
+    ),
+    document_type: Optional[DocumentType] = Query(
+        default=None,
+        description=(
+            "可选的文档类型提示。调用方已明确图片类型时建议传入，可跳过自动"
+            "类型判断，并使用对应的推理参数；身份证正反面还会使用更快的检测"
+            "尺寸。可选值：id_front（身份证正面）、id_back（身份证反面）、"
+            "business_license（营业执照）、bank_card（银行卡）、invoice（发票）。"
+            "不传时由 OCR 文本自动判断类型。传错类型可能导致字段解析错误。"
+        ),
+    ),
+    auto_orientation: Optional[bool] = Query(
+        default=None,
+        description=(
+            "是否执行图片方向检测和自动旋转。true：适合手机拍摄、图片方向不确定"
+            "的场景，会增加少量推理耗时；false：适合调用方已保证图片方向正确的"
+            "场景，响应更快。不传时使用服务端 OCR_USE_DOC_ORIENTATION 配置，"
+            "当前默认值为 false。"
+        ),
+    ),
 ):
+    """
+    识别身份证、营业执照、银行卡和发票，并返回结构化字段。
+
+    推荐在调用方明确证件类型且图片方向正确时传入 `document_type`，同时保持
+    `auto_orientation=false`，可以减少自动判断和方向模型的推理开销。图片方向
+    不确定时设置 `auto_orientation=true`。相同图片和推理参数会复用一天内的 OCR
+    缓存，但每次调用仍会生成独立的 `request_id`。
+    """
     request_id = get_request_id() or uuid.uuid4().hex
     request_logger = logger.bind(request_id=request_id)
     path, output_dir = _prepare_request_paths(file, request_id)
@@ -187,13 +223,31 @@ async def ocr(
         await file.close()
 
 
-@router.post("/ocr/raw")
+@router.post(
+    "/ocr/raw",
+    summary="原始 OCR 识别",
+    response_description="OCR 文本、置信度及坐标结果",
+)
 async def ocr_raw(
     response: Response,
-    file: UploadFile = File(...),
-    document_type: Optional[DocumentType] = Query(default=None),
-    auto_orientation: Optional[bool] = Query(default=None),
+    file: UploadFile = File(
+        ...,
+        description="待识别的原始图片文件。",
+    ),
+    document_type: Optional[DocumentType] = Query(
+        default=None,
+        description=(
+            "可选的文档类型提示，用于选择对应推理参数；不传时使用通用参数。"
+        ),
+    ),
+    auto_orientation: Optional[bool] = Query(
+        default=None,
+        description=(
+            "是否执行图片方向检测和自动旋转；不传时使用服务端配置。"
+        ),
+    ),
 ):
+    """执行 OCR 并返回文本、置信度和坐标等原始识别结果。"""
     request_id = get_request_id() or uuid.uuid4().hex
     request_logger = logger.bind(request_id=request_id)
     path, output_dir = _prepare_request_paths(file, request_id)
