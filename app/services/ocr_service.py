@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional, Union
 import re
 import os
 from pathlib import Path
@@ -126,7 +126,7 @@ class OCRService:
         logger.info("PaddleX OCR Layout Pipeline Ready with official detector.")
 
     def preprocess_image(
-        self, image_path: str, output_dir: str | Path | None = None
+        self, image_path: str, output_dir: Optional[Union[str, Path]] = None
     ) -> str:
         """
         图片预处理：自动增强图片质量
@@ -166,7 +166,7 @@ class OCRService:
     @staticmethod
     def _save_platform_preprocessed_image(
         doc_preprocessor_res: dict[str, Any],
-        output_dir: str | Path | None,
+        output_dir: Optional[Union[str, Path]],
         request_logger,
     ) -> None:
         if output_dir is None:
@@ -255,8 +255,8 @@ class OCRService:
         self,
         image_path: str,
         min_score: float = 0.7,
-        request_id: str | None = None,
-        output_dir: str | Path | None = None,
+        request_id: Optional[str] = None,
+        output_dir: Optional[Union[str, Path]] = None,
     ) -> dict[str, Any]:
         """
         OCR 识别接口（带优化）

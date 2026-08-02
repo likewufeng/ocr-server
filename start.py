@@ -42,7 +42,6 @@ def main():
         "--port", port,
         "--reload",
         "--reload-dir", current_dir,
-        "--reload-include", "*.py",
     ]
     
     print(f"🚀 启动 OCR Server... (端口: {port})")

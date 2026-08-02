@@ -1,10 +1,11 @@
 from contextvars import ContextVar, Token
+from typing import Optional
 
 
-_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
+_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 
 
-def get_request_id() -> str | None:
+def get_request_id() -> Optional[str]:
     return _request_id.get()
 
 

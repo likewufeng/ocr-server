@@ -2,6 +2,7 @@ import json
 import shutil
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, File, UploadFile
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="", tags=["OCR"])
 parser = OCRParser()
 
 
-def _safe_filename(filename: str | None) -> str:
+def _safe_filename(filename: Optional[str]) -> str:
     normalized = (filename or "").replace("\\", "/")
     basename = normalized.rsplit("/", 1)[-1]
     return basename if basename not in {"", ".", ".."} else "upload.bin"
