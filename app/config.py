@@ -38,6 +38,18 @@ CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "3600"))
 
 OCR_USE_FINE_TUNED_MODEL = _env_bool("OCR_USE_FINE_TUNED_MODEL", True)
 
+OCR_MODEL_PROFILE = os.getenv("OCR_MODEL_PROFILE", "server").strip().lower()
+if OCR_MODEL_PROFILE not in {"mobile", "server"}:
+    raise ValueError("OCR_MODEL_PROFILE must be 'mobile' or 'server'")
+
+OCR_USE_DOC_ORIENTATION = _env_bool("OCR_USE_DOC_ORIENTATION", True)
+
+OCR_USE_DOC_UNWARPING = _env_bool("OCR_USE_DOC_UNWARPING", False)
+
+OCR_MAX_CONCURRENT_REQUESTS = max(
+    1, int(os.getenv("OCR_MAX_CONCURRENT_REQUESTS", "1"))
+)
+
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

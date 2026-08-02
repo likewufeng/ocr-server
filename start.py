@@ -1,64 +1,51 @@
-# -*- coding: utf-8 -*-
-#Author: WuFeng <763467339@qq.com>
-#Date: 2026-07-13 11:03:48
-#LastEditTime: 2026-07-13 12:13:43
-#LastEditors: WuFeng <763467339@qq.com>
-#Description: 启动脚本 - 封装 Uvicorn 启动命令
-# # 方式1：直接运行
-# python start.py
-
-# # 方式2：指定端口（会读取 .env.local 中的配置）
-# PORT=8002 python start.py
-
-# # 方式3：给脚本添加执行权限（Linux/Mac）
-# chmod +x start.py
-# ./start.py
-#FilePath: /ocr-server/start.py
-#Copyright 版权声明
-#
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""启动脚本 - 封装 Uvicorn 启动命令"""
-
+import os
 import subprocess
 import sys
-import os
+from pathlib import Path
 
-def main():
-    # 获取端口配置，默认8000
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def main() -> None:
+    project_dir = Path(__file__).resolve().parent
+    app_dir = project_dir / "app"
     port = os.getenv("PORT", "8000")
-    
-    # Windows 兼容性：强制使用 polling 模式
-    os.environ["WATCHFILES_FORCE_POLLING"] = "true"
-    
-    # 获取当前工作目录，支持跨平台
-    current_dir = os.getcwd()
-    
-    # 构建启动命令
+    reload_enabled = _env_bool("DEV_RELOAD", True)
+
+    if os.name == "nt":
+        os.environ.setdefault("OCR_MODEL_PROFILE", "mobile")
+
     cmd = [
-        sys.executable, "-m", "uvicorn",
+        sys.executable,
+        "-m",
+        "uvicorn",
         "app.main:app",
-        "--host", "0.0.0.0",
-        "--port", port,
-        "--reload",
-        "--reload-dir", current_dir,
+        "--host",
+        "0.0.0.0",
+        "--port",
+        port,
     ]
-    
-    print(f"🚀 启动 OCR Server... (端口: {port})")
-    print(f"命令: {' '.join(cmd)}")
-    print("=" * 50)
-    print("💡 热重载已启用：修改 .py 文件后自动重启")
-    print("💡 Windows 兼容模式：已启用 polling")
-    print("=" * 50)
-    
-    # 执行命令
+    if reload_enabled:
+        cmd.extend(["--reload", "--reload-dir", str(app_dir)])
+
+    print(f"Starting OCR Server on port {port}")
+    print(f"Command: {' '.join(cmd)}")
+    print(f"Reload: {'enabled for app/' if reload_enabled else 'disabled'}")
+
     try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"❌ 启动失败: {e}")
+        subprocess.run(cmd, check=True, cwd=project_dir)
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to start OCR Server: {exc}")
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\n👋 服务已停止")
+        print("\nOCR Server stopped")
+
 
 if __name__ == "__main__":
     main()

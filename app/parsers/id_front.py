@@ -8,6 +8,7 @@
 #Copyright 版权声明
 #
 import re
+from datetime import datetime
 
 from app.utils.layout import Layout
 from app.utils.ocr_corrections import normalize_known_admin_text
@@ -79,10 +80,12 @@ class IDFrontParser:
         birth_line = layout.find("出生")
 
         if birth_line:
-
+            birth_row_text = "".join(
+                line.text for line in layout.same_row(birth_line, tolerance=35)
+            )
             m = re.search(
                 r"\d{4}年\d{1,2}月\d{1,2}日",
-                birth_line.text
+                birth_row_text
             )
 
             if m:
@@ -187,5 +190,18 @@ class IDFrontParser:
             m = re.search(r"\d{17}[0-9Xx]", full_text)
             if m:
                 data["id_number"] = m.group().upper()
+
+        # 平台/移动模型可能把“出生”和日期拆框，甚至漏掉日期框。
+        # 身份证号码中的出生日期是结构化字段，可作为可靠兜底。
+        if not data["birthday"] and data["id_number"]:
+            birth_digits = data["id_number"][6:14]
+            try:
+                birth_date = datetime.strptime(birth_digits, "%Y%m%d")
+            except ValueError:
+                pass
+            else:
+                data["birthday"] = (
+                    f"{birth_date.year}年{birth_date.month}月{birth_date.day}日"
+                )
 
         return data

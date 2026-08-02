@@ -1,6 +1,7 @@
 from typing import Any, Optional, Union
 import re
 import os
+import time
 from pathlib import Path
 import cv2
 import numpy as np
@@ -11,17 +12,26 @@ from app.utils.logger import logger
 
 # 1. 确保在文件顶部导入了我们在 config.py 里配置好的 MODEL_DIR
 from app.config import MODEL_DIR
+from app.config import OCR_MODEL_PROFILE
+from app.config import OCR_USE_DOC_ORIENTATION
+from app.config import OCR_USE_DOC_UNWARPING
 from app.config import OCR_USE_FINE_TUNED_MODEL
 
 # 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
+official_detection_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_det"
+official_recognition_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_rec"
 
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
-    use_doc_preprocessor = not use_fine_tuned
+    use_doc_preprocessor = not use_fine_tuned and (
+        OCR_USE_DOC_ORIENTATION or OCR_USE_DOC_UNWARPING
+    )
     text_detection_config = {
-        "model_name": "PP-OCRv5_server_det",
+        "model_name": (
+            "PP-OCRv5_server_det" if use_fine_tuned else official_detection_model
+        ),
         # 官方 PP-OCRv5 默认值是 1.5；2.0 是为了银行卡微调检测模型扩大检测框。
         "unclip_ratio": 2.0 if use_fine_tuned else 1.5,
     }
@@ -37,27 +47,30 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
         "SubModules": {
             "TextDetection": text_detection_config,
             "TextRecognition": {
-                "model_name": "PP-OCRv5_server_rec",
+                "model_name": official_recognition_model,
             },
         },
     }
 
     if use_doc_preprocessor:
+        doc_preprocessor_modules = {}
+        if OCR_USE_DOC_ORIENTATION:
+            doc_preprocessor_modules["DocOrientationClassify"] = {
+                "module_name": "doc_text_orientation",
+                "model_name": "PP-LCNet_x1_0_doc_ori",
+            }
+        if OCR_USE_DOC_UNWARPING:
+            doc_preprocessor_modules["DocUnwarping"] = {
+                "module_name": "image_unwarping",
+                "model_name": "UVDoc",
+            }
+
         config["SubPipelines"] = {
             "DocPreprocessor": {
                 "pipeline_name": "doc_preprocessor",
-                "use_doc_orientation_classify": True,
-                "use_doc_unwarping": True,
-                "SubModules": {
-                    "DocOrientationClassify": {
-                        "module_name": "doc_text_orientation",
-                        "model_name": "PP-LCNet_x1_0_doc_ori",
-                    },
-                    "DocUnwarping": {
-                        "module_name": "image_unwarping",
-                        "model_name": "UVDoc",
-                    },
-                },
+                "use_doc_orientation_classify": OCR_USE_DOC_ORIENTATION,
+                "use_doc_unwarping": OCR_USE_DOC_UNWARPING,
+                "SubModules": doc_preprocessor_modules,
             },
         }
 
@@ -89,13 +102,19 @@ class OCRService:
             except Exception as exc:
                 logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
 
-        logger.info("Initializing PaddleX OCR Pipeline with official detector.")
+        logger.info(
+            "Initializing PaddleX OCR Pipeline with official {} models.",
+            OCR_MODEL_PROFILE,
+        )
         self.pipeline = create_pipeline(
             pipeline="OCR",
             config=_build_ocr_config(use_fine_tuned=False),
         )
         self.pipeline_uses_fine_tuned_detector = False
-        logger.info("PaddleX OCR Pipeline Ready with official detector.")
+        logger.info(
+            "PaddleX OCR Pipeline Ready with official {} models.",
+            OCR_MODEL_PROFILE,
+        )
 
     def initialize_layout_pipeline(self):
         """初始化布局分析 pipeline"""
@@ -275,6 +294,7 @@ class OCRService:
         # 图片预处理
         temp_path = None
         request_logger = logger.bind(request_id=request_id or "-")
+        recognize_started_at = time.perf_counter()
         try:
             if self.pipeline_uses_fine_tuned_detector:
                 temp_path = self.preprocess_image(image_path, output_dir=output_dir)
@@ -284,7 +304,12 @@ class OCRService:
                 ocr_input_path = image_path
 
             # OCR 识别
+            prediction_started_at = time.perf_counter()
             for result in self.pipeline.predict(ocr_input_path):
+                prediction_ms = (time.perf_counter() - prediction_started_at) * 1000
+                request_logger.info(
+                    "PaddleX prediction completed: duration_ms={:.2f}", prediction_ms
+                )
 
                 # 置信度过滤
                 texts = []
@@ -326,6 +351,8 @@ class OCRService:
             }
 
         finally:
+            total_ms = (time.perf_counter() - recognize_started_at) * 1000
+            request_logger.info("OCR service finished: duration_ms={:.2f}", total_ms)
             # 清理临时文件
             if temp_path and output_dir is None and os.path.exists(temp_path):
                 try:

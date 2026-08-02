@@ -304,6 +304,40 @@ def test_id_front_with_admin_area_typo():
     assert result["address"] == "河南省渑池县测试镇"
     print("ID Front Admin Area Typo Test Passed!")
 
+def test_id_front_with_split_birthday_and_admin_area_typo():
+    print("\n--- Testing ID Front with Split Birthday and Admin Area Typo ---")
+    lines = [
+        OCRLine(text="姓名吴烽", left=358, top=189, right=594, bottom=248, score=0.99),
+        OCRLine(text="性别男", left=365, top=269, right=526, bottom=321, score=0.99),
+        OCRLine(text="民族汉", left=505, top=268, right=705, bottom=314, score=0.99),
+        OCRLine(text="出生", left=369, top=330, right=489, bottom=389, score=0.99),
+        OCRLine(text="1991年8月15日", left=482, top=330, right=785, bottom=389, score=0.99),
+        OCRLine(text="住址", left=372, top=415, right=489, bottom=461, score=0.99),
+        OCRLine(text="河南省绳池县洪阳镇德厚", left=466, top=405, right=851, bottom=460, score=0.99),
+        OCRLine(text="村七组1号", left=482, top=454, right=665, bottom=508, score=0.99),
+        OCRLine(text="公民身份号码", left=380, top=571, right=650, bottom=647, score=0.99),
+        OCRLine(text="411221199108152534", left=630, top=571, right=1114, bottom=647, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines))
+    assert result["type"] == "id_front"
+    assert result["birthday"] == "1991年8月15日"
+    assert result["address"] == "河南省渑池县洪阳镇德厚村七组1号"
+    assert result["id_number"] == "411221199108152534"
+    print("ID Front Split Birthday and Admin Area Typo Test Passed!")
+
+def test_id_front_birthday_fallback_from_id_number():
+    print("\n--- Testing ID Front Birthday Fallback from ID Number ---")
+    lines = [
+        OCRLine(text="姓名吴烽", left=358, top=189, right=594, bottom=248, score=0.99),
+        OCRLine(text="性别男民族汉", left=365, top=269, right=705, bottom=321, score=0.99),
+        OCRLine(text="出生", left=369, top=330, right=489, bottom=389, score=0.99),
+        OCRLine(text="住址河南省渑池县洪阳镇", left=372, top=415, right=851, bottom=461, score=0.99),
+        OCRLine(text="公民身份号码411221199108152534", left=380, top=571, right=1114, bottom=647, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines))
+    assert result["birthday"] == "1991年8月15日"
+    print("ID Front Birthday Fallback Test Passed!")
+
 def test_id_back_with_missing_authority_prefix():
     print("\n--- Testing ID Back with Missing Authority Prefix ---")
     lines = [
@@ -343,6 +377,8 @@ if __name__ == "__main__":
     test_id_front_with_split_id_label()
     test_id_front_with_split_address_and_nation()
     test_id_front_with_admin_area_typo()
+    test_id_front_with_split_birthday_and_admin_area_typo()
+    test_id_front_birthday_fallback_from_id_number()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()

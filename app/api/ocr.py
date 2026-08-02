@@ -1,13 +1,16 @@
+import asyncio
 import json
 import re
 import shutil
+import time
 import uuid
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, File, UploadFile
+from starlette.concurrency import run_in_threadpool
 
-from app.config import OUTPUT_DIR, UPLOAD_DIR
+from app.config import OCR_MAX_CONCURRENT_REQUESTS, OUTPUT_DIR, UPLOAD_DIR
 from app.parsers.parser import OCRParser
 from app.schemas.response import ApiResponse
 from app.services.ocr_service import ocr_service
@@ -18,6 +21,7 @@ from app.utils.request_context import get_request_id
 
 router = APIRouter(prefix="", tags=["OCR"])
 parser = OCRParser()
+ocr_slots = asyncio.Semaphore(OCR_MAX_CONCURRENT_REQUESTS)
 
 
 def _safe_extension(filename: Optional[str]) -> str:
@@ -54,6 +58,21 @@ def _save_upload_info(file: UploadFile, path: Path, output_dir: Path) -> None:
     )
 
 
+async def _recognize(
+    path: Path, request_id: str, output_dir: Path, request_logger
+) -> dict:
+    queued_at = time.perf_counter()
+    async with ocr_slots:
+        queue_ms = (time.perf_counter() - queued_at) * 1000
+        request_logger.info("OCR execution slot acquired: queue_ms={:.2f}", queue_ms)
+        return await run_in_threadpool(
+            ocr_service.recognize,
+            str(path),
+            request_id=request_id,
+            output_dir=output_dir,
+        )
+
+
 @router.post("/ocr")
 async def ocr(file: UploadFile = File(...)):
     request_id = get_request_id() or uuid.uuid4().hex
@@ -66,9 +85,7 @@ async def ocr(file: UploadFile = File(...)):
         _save_upload_info(file, path, output_dir)
         request_logger.info("Original upload saved: {}", path)
 
-        ocr_result = ocr_service.recognize(
-            str(path), request_id=request_id, output_dir=output_dir
-        )
+        ocr_result = await _recognize(path, request_id, output_dir, request_logger)
         _save_json(output_dir / "ocr_result.json", ocr_result)
 
         layout = build_layout(ocr_result)
@@ -98,9 +115,7 @@ async def ocr_raw(file: UploadFile = File(...)):
         _save_upload_info(file, path, output_dir)
         request_logger.info("Original upload saved: {}", path)
 
-        ocr_result = ocr_service.recognize(
-            str(path), request_id=request_id, output_dir=output_dir
-        )
+        ocr_result = await _recognize(path, request_id, output_dir, request_logger)
         _save_json(output_dir / "ocr_result.json", ocr_result)
 
         request_logger.info("Raw OCR request completed")
