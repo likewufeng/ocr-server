@@ -1,0 +1,77 @@
+name: ocr-openvino-experiment
+
+x-experiment-service: &experiment-service
+  restart: unless-stopped
+  volumes:
+    - ./data/openvino-experiment/uploads:/app/data/uploads
+    - ./data/openvino-experiment/outputs:/app/data/outputs
+    - ./data/openvino-experiment/cache:/app/data/cache
+    - ./models:/app/models:ro
+  environment: &experiment-environment
+    OCR_MODEL_PROFILE: ${OCR_MODEL_PROFILE:-mobile}
+    OCR_DEVICE: cpu
+    OCR_USE_FINE_TUNED_MODEL: "false"
+    OCR_ENABLE_MKLDNN: "true"
+    OCR_CPU_THREADS: ${OCR_CPU_THREADS:-8}
+    OCR_TEXT_RECOGNITION_BATCH_SIZE: ${OCR_TEXT_RECOGNITION_BATCH_SIZE:-6}
+    OCR_MAX_CONCURRENT_REQUESTS: 1
+    OCR_ENABLE_DOC_ORIENTATION_MODEL: ${OCR_ENABLE_DOC_ORIENTATION_MODEL:-true}
+    OCR_USE_DOC_ORIENTATION: ${OCR_USE_DOC_ORIENTATION:-true}
+    OCR_SAVE_PREPROCESSED_IMAGE: "false"
+    OCR_CACHE_ENABLED: "false"
+    METRICS_ENABLED: "true"
+    OMP_NUM_THREADS: ${OCR_CPU_THREADS:-8}
+    MKL_NUM_THREADS: ${OCR_CPU_THREADS:-8}
+  command: >-
+    sh -c 'if [ ! -d /root/.paddlex/official_models ]; then
+    cp -a /app/models/. /root/.paddlex/; fi;
+    exec uvicorn app.main:app --host 0.0.0.0 --port 8000'
+
+services:
+  paddle-baseline:
+    <<: *experiment-service
+    build:
+      context: .
+      args:
+        INSTALL_OPENVINO: "false"
+    container_name: ocr-paddle-baseline
+    ports:
+      - "127.0.0.1:8011:8000"
+    volumes:
+      - ./data/openvino-experiment/uploads:/app/data/uploads
+      - ./data/openvino-experiment/outputs:/app/data/outputs
+      - ./data/openvino-experiment/cache:/app/data/cache
+      - ./models:/app/models:ro
+      - paddle-experiment-models:/root/.paddlex
+      - ./data/openvino-experiment/logs/paddle:/app/data/logs/paddle
+    environment:
+      <<: *experiment-environment
+      INSTANCE_NAME: paddle-baseline
+      LOG_DIR: data/logs/paddle
+      OCR_INFERENCE_BACKEND: paddle
+
+  openvino:
+    <<: *experiment-service
+    build:
+      context: .
+      args:
+        INSTALL_OPENVINO: "true"
+    container_name: ocr-openvino
+    ports:
+      - "127.0.0.1:8012:8000"
+    volumes:
+      - ./data/openvino-experiment/uploads:/app/data/uploads
+      - ./data/openvino-experiment/outputs:/app/data/outputs
+      - ./data/openvino-experiment/cache:/app/data/cache
+      - ./models:/app/models:ro
+      - openvino-experiment-models:/root/.paddlex
+      - ./data/openvino-experiment/logs/openvino:/app/data/logs/openvino
+    environment:
+      <<: *experiment-environment
+      INSTANCE_NAME: openvino
+      LOG_DIR: data/logs/openvino
+      OCR_INFERENCE_BACKEND: openvino
+
+volumes:
+  paddle-experiment-models:
+  openvino-experiment-models:

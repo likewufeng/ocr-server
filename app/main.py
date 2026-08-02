@@ -66,12 +66,14 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
+from app.api.metrics import router as metrics_router
 from app.api.ocr import router as ocr_router
 from app.api.authorization_letter import router as auth_letter_router
 from app.lifecycle import lifespan
 from app.config import APP_NAME
 from app.schemas.response import ApiResponse
 from app.utils.logger import logger
+from app.utils.metrics import metrics
 from app.utils.request_context import reset_request_id, set_request_id
 
 app = FastAPI(
@@ -87,6 +89,9 @@ async def request_id_middleware(request: Request, call_next):
     request.state.request_id = request_id
     token = set_request_id(request_id)
     started_at = time.perf_counter()
+    monitor_request = request.url.path not in {"/metrics", "/metrics/json"}
+    if monitor_request:
+        metrics.http_started()
 
     with logger.contextualize(request_id=request_id):
         logger.info("Request started: {} {}", request.method, request.url.path)
@@ -104,7 +109,14 @@ async def request_id_middleware(request: Request, call_next):
             )
 
         response.headers["X-Request-ID"] = request_id
-        duration_ms = (time.perf_counter() - started_at) * 1000
+        duration_seconds = time.perf_counter() - started_at
+        duration_ms = duration_seconds * 1000
+        route = request.scope.get("route")
+        route_path = getattr(route, "path", None) or "unmatched"
+        if monitor_request:
+            metrics.http_completed(
+                request.method, route_path, response.status_code, duration_seconds
+            )
         logger.info(
             "Request completed: {} {} status={} duration_ms={:.2f}",
             request.method,
@@ -117,6 +129,7 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 app.include_router(health_router)
+app.include_router(metrics_router)
 app.include_router(ocr_router)
 app.include_router(auth_letter_router)
 

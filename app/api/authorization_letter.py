@@ -13,10 +13,12 @@
 提供授权委托书 PDF 文件的解析接口，提取关键信息。
 """
 
+import asyncio
+import os
+import tempfile
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
-import tempfile
-import os
 
 from app.schemas.response import ApiResponse
 from app.parsers.authorization_letter import AuthorizationLetterParser
@@ -144,7 +146,9 @@ async def parse_authorization_letter_ocr(file: UploadFile = File(...)):
             raise RuntimeError("OCR 服务未初始化，请先调用初始化接口")
         
         # 使用 OCR 服务的布局分析 pipeline
-        layout_results = ocr_service.recognize_with_layout(tmp_path)
+        layout_results = await asyncio.wrap_future(
+            ocr_service.submit_recognize_with_layout(tmp_path)
+        )
         
         # 格式化结果
         formatted_result = {

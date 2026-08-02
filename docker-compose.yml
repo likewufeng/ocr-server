@@ -18,8 +18,11 @@ services:
       - ./data/logs:/app/data/logs
 
     environment:
+      INSTANCE_NAME: ${INSTANCE_NAME:-ocr-single}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
       OCR_MODEL_PROFILE: ${OCR_MODEL_PROFILE:-mobile}
       OCR_DEVICE: cpu
+      OCR_INFERENCE_BACKEND: ${OCR_INFERENCE_BACKEND:-paddle}
       OCR_ENABLE_MKLDNN: ${OCR_ENABLE_MKLDNN:-true}
       OCR_CPU_THREADS: ${OCR_CPU_THREADS:-8}
       OCR_TEXT_RECOGNITION_BATCH_SIZE: ${OCR_TEXT_RECOGNITION_BATCH_SIZE:-6}

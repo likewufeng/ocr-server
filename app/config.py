@@ -5,6 +5,7 @@
 """
 
 import os
+import socket
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,6 +29,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 APP_NAME = os.getenv("APP_NAME")
 HOST = os.getenv("HOST")
 PORT = int(os.getenv("PORT"))
+INSTANCE_NAME = os.getenv("INSTANCE_NAME", socket.gethostname()).strip()
+
+# 是否采集并暴露 /metrics 与 /metrics/json 进程指标。
+METRICS_ENABLED = _env_bool("METRICS_ENABLED", True)
 
 
 # ---------- 动态数据与模型目录 ----------
@@ -58,6 +63,16 @@ if OCR_MODEL_PROFILE not in {"mobile", "server"}:
 # 支持 cpu、gpu:0 等 PaddleX 设备写法。
 # 使用 GPU 还必须准备 GPU 版 PaddlePaddle 和 CUDA 运行环境。
 OCR_DEVICE = os.getenv("OCR_DEVICE", "cpu").strip().lower()
+
+# paddle：当前稳定的 Paddle Inference/MKLDNN 后端；openvino：仅用于已安装
+# PaddleX HPIP、UltraInfer 和 Paddle2ONNX 的 CPU 对照实验。
+OCR_INFERENCE_BACKEND = os.getenv(
+    "OCR_INFERENCE_BACKEND", "paddle"
+).strip().lower()
+if OCR_INFERENCE_BACKEND not in {"paddle", "openvino"}:
+    raise ValueError("OCR_INFERENCE_BACKEND must be 'paddle' or 'openvino'")
+if OCR_INFERENCE_BACKEND == "openvino" and OCR_DEVICE != "cpu":
+    raise ValueError("OCR_INFERENCE_BACKEND=openvino requires OCR_DEVICE=cpu")
 
 
 # ---------- CPU 推理参数 ----------

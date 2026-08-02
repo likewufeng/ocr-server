@@ -7,7 +7,9 @@
 #FilePath: /ocr-server/app/api/health.py
 #Copyright 版权声明
 #
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+
+from app.services.ocr_service import ocr_service
 
 router = APIRouter(
     prefix="/health",
@@ -16,8 +18,11 @@ router = APIRouter(
 
 
 @router.get("")
-def health():
-
+def health(response: Response):
+    model_ready = ocr_service.pipeline is not None
+    if not model_ready:
+        response.status_code = 503
     return {
-        "status": "ok"
+        "status": "ok" if model_ready else "not_ready",
+        "model_ready": model_ready,
     }

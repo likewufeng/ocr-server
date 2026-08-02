@@ -1,0 +1,83 @@
+name: ocr-server-scale
+
+x-ocr-service: &ocr-service
+  image: ocr-server:production
+  restart: unless-stopped
+  volumes:
+    - ./data/uploads:/app/data/uploads
+    - ./data/outputs:/app/data/outputs
+    - ./data/cache:/app/data/cache
+    - ./models:/app/models
+    - ./models:/root/.paddlex
+  environment: &ocr-environment
+    OCR_MODEL_PROFILE: ${OCR_MODEL_PROFILE:-mobile}
+    OCR_DEVICE: cpu
+    OCR_INFERENCE_BACKEND: ${OCR_INFERENCE_BACKEND:-paddle}
+    OCR_ENABLE_MKLDNN: ${OCR_ENABLE_MKLDNN:-true}
+    OCR_CPU_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
+    OCR_TEXT_RECOGNITION_BATCH_SIZE: ${OCR_TEXT_RECOGNITION_BATCH_SIZE:-6}
+    OCR_MAX_CONCURRENT_REQUESTS: 1
+    OCR_ENABLE_DOC_ORIENTATION_MODEL: ${OCR_ENABLE_DOC_ORIENTATION_MODEL:-true}
+    OCR_USE_DOC_ORIENTATION: ${OCR_USE_DOC_ORIENTATION:-true}
+    OCR_SAVE_PREPROCESSED_IMAGE: ${OCR_SAVE_PREPROCESSED_IMAGE:-true}
+    OCR_CACHE_ENABLED: ${OCR_CACHE_ENABLED:-true}
+    METRICS_ENABLED: ${METRICS_ENABLED:-true}
+    OMP_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
+    MKL_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
+  command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+  healthcheck:
+    test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8000/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 180s
+
+services:
+  ocr-1:
+    <<: *ocr-service
+    build: .
+    container_name: ocr-server-1
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ./data/uploads:/app/data/uploads
+      - ./data/outputs:/app/data/outputs
+      - ./data/cache:/app/data/cache
+      - ./models:/app/models
+      - ./models:/root/.paddlex
+      - ./data/logs/ocr-1:/app/data/logs/ocr-1
+    environment:
+      <<: *ocr-environment
+      INSTANCE_NAME: ocr-1
+      LOG_DIR: data/logs/ocr-1
+
+  ocr-2:
+    <<: *ocr-service
+    container_name: ocr-server-2
+    ports:
+      - "127.0.0.1:8002:8000"
+    volumes:
+      - ./data/uploads:/app/data/uploads
+      - ./data/outputs:/app/data/outputs
+      - ./data/cache:/app/data/cache
+      - ./models:/app/models
+      - ./models:/root/.paddlex
+      - ./data/logs/ocr-2:/app/data/logs/ocr-2
+    environment:
+      <<: *ocr-environment
+      INSTANCE_NAME: ocr-2
+      LOG_DIR: data/logs/ocr-2
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ocr-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./deploy/nginx/ocr.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      ocr-1:
+        condition: service_healthy
+      ocr-2:
+        condition: service_healthy

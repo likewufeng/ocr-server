@@ -13,6 +13,7 @@ from paddlex import create_pipeline
 from paddlex.inference.utils.pp_option import PaddlePredictorOption
 
 from app.utils.logger import logger
+from app.utils.metrics import metrics
 
 # 1. 确保在文件顶部导入了我们在 config.py 里配置好的 MODEL_DIR
 from app.config import MODEL_DIR
@@ -20,6 +21,7 @@ from app.config import OCR_CPU_THREADS
 from app.config import OCR_DEVICE
 from app.config import OCR_ENABLE_DOC_ORIENTATION_MODEL
 from app.config import OCR_ENABLE_MKLDNN
+from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
 from app.config import OCR_MODEL_PROFILE
 from app.config import OCR_PREPROCESSED_JPEG_QUALITY
@@ -102,7 +104,19 @@ def _create_ocr_pipeline(config: dict[str, Any]):
         "config": config,
         "device": OCR_DEVICE,
     }
-    if OCR_DEVICE == "cpu":
+    if OCR_INFERENCE_BACKEND == "openvino":
+        create_options.update(
+            {
+                "use_hpip": True,
+                "hpi_config": {
+                    "auto_config": False,
+                    "backend": "openvino",
+                    "backend_config": {"cpu_num_threads": OCR_CPU_THREADS},
+                    "auto_paddle2onnx": True,
+                },
+            }
+        )
+    elif OCR_DEVICE == "cpu":
         create_options["pp_option"] = PaddlePredictorOption(
             run_mode="mkldnn" if OCR_ENABLE_MKLDNN else "paddle",
             cpu_threads=OCR_CPU_THREADS,
@@ -116,6 +130,9 @@ class OCRService:
         self.pipeline = None
         self.layout_pipeline = None
         self.pipeline_uses_fine_tuned_detector = False
+        self._inference_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="ocr-inference"
+        )
         self._artifact_executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="ocr-artifact"
         )
@@ -142,6 +159,7 @@ class OCRService:
             "version": OCR_CACHE_VERSION,
             "profile": OCR_MODEL_PROFILE,
             "fine_tuned": OCR_USE_FINE_TUNED_MODEL,
+            "inference_backend": OCR_INFERENCE_BACKEND,
             "orientation": self._effective_orientation(auto_orientation),
             "unwarping": OCR_USE_DOC_UNWARPING,
             "document_type": document_type,
@@ -163,6 +181,7 @@ class OCRService:
                     _build_ocr_config(use_fine_tuned=True)
                 )
                 self.pipeline_uses_fine_tuned_detector = True
+                metrics.set_model_ready(True)
                 logger.info("PaddleX OCR Pipeline Ready with fine-tuned detector.")
                 return
             except Exception as exc:
@@ -170,9 +189,10 @@ class OCRService:
 
         logger.info(
             "Initializing PaddleX OCR Pipeline: profile={}, device={}, "
-            "cpu_threads={}, rec_batch_size={}, mkldnn={}.",
+            "backend={}, cpu_threads={}, rec_batch_size={}, mkldnn={}.",
             OCR_MODEL_PROFILE,
             OCR_DEVICE,
+            OCR_INFERENCE_BACKEND,
             OCR_CPU_THREADS,
             OCR_TEXT_RECOGNITION_BATCH_SIZE,
             OCR_ENABLE_MKLDNN,
@@ -181,9 +201,24 @@ class OCRService:
             _build_ocr_config(use_fine_tuned=False)
         )
         self.pipeline_uses_fine_tuned_detector = False
+        metrics.set_model_ready(True)
         logger.info(
             "PaddleX OCR Pipeline Ready with official {} models.",
             OCR_MODEL_PROFILE,
+        )
+
+    def submit_initialize(self):
+        """在固定推理线程中初始化模型，保持 Paddle predictor 线程亲和性。"""
+        return self._inference_executor.submit(self.initialize)
+
+    def submit_recognize(self, image_path: str, **kwargs):
+        """将推理提交到唯一的固定线程，避免 predictor 跨线程复用。"""
+        return self._inference_executor.submit(self.recognize, image_path, **kwargs)
+
+    def submit_recognize_with_layout(self, image_path: str):
+        """将布局分析提交到同一个推理线程，避免阻塞事件循环。"""
+        return self._inference_executor.submit(
+            self.recognize_with_layout, image_path
         )
 
     def initialize_layout_pipeline(self):
@@ -295,7 +330,9 @@ class OCRService:
             )
 
     def shutdown(self) -> None:
+        self._inference_executor.shutdown(wait=True)
         self._artifact_executor.shutdown(wait=True)
+        metrics.set_model_ready(False)
 
     @staticmethod
     def _looks_like_alphanumeric_code(text: str) -> bool:
@@ -418,7 +455,11 @@ class OCRService:
                 detection_side_limit,
             )
             for result in self.pipeline.predict(ocr_input_path, **predict_options):
-                prediction_ms = (time.perf_counter() - prediction_started_at) * 1000
+                prediction_seconds = time.perf_counter() - prediction_started_at
+                prediction_ms = prediction_seconds * 1000
+                metrics.observe_prediction(
+                    document_type or "auto", prediction_seconds
+                )
                 request_logger.info(
                     "PaddleX prediction completed: duration_ms={:.2f}", prediction_ms
                 )

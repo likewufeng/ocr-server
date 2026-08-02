@@ -16,6 +16,7 @@ from app.schemas.response import ApiResponse
 from app.services.ocr_service import ocr_service
 from app.utils.layout import build_layout
 from app.utils.logger import logger
+from app.utils.metrics import metrics
 from app.utils.ocr_cache import ocr_cache
 from app.utils.request_context import get_request_id
 
@@ -100,31 +101,51 @@ async def _recognize(
     document_type: Optional[str],
     auto_orientation: Optional[bool],
 ) -> tuple[dict, bool]:
+    metric_document_type = document_type or "auto"
     cached_result = await run_in_threadpool(ocr_cache.get, cache_key)
     if cached_result is not None:
+        metrics.record_cache("hit")
         request_logger.info("OCR cache hit before queue: key={}", cache_key)
         return cached_result, True
 
     queued_at = time.perf_counter()
-    async with ocr_slots:
-        queue_ms = (time.perf_counter() - queued_at) * 1000
+    metrics.queue_started()
+    slot_acquired = False
+    try:
+        await ocr_slots.acquire()
+        slot_acquired = True
+        queue_seconds = time.perf_counter() - queued_at
+        metrics.queue_acquired(metric_document_type, queue_seconds)
+        queue_ms = queue_seconds * 1000
         request_logger.info("OCR execution slot acquired: queue_ms={:.2f}", queue_ms)
         cached_result = await run_in_threadpool(ocr_cache.get, cache_key)
         if cached_result is not None:
+            metrics.record_cache("hit")
             request_logger.info("OCR cache hit after queue: key={}", cache_key)
             return cached_result, True
 
-        result = await run_in_threadpool(
-            ocr_service.recognize,
-            str(path),
-            request_id=request_id,
-            output_dir=output_dir,
-            document_type=document_type,
-            auto_orientation=auto_orientation,
-        )
+        metrics.record_cache("miss")
+        metrics.inference_started()
+        try:
+            result = await asyncio.wrap_future(
+                ocr_service.submit_recognize(
+                    str(path),
+                    request_id=request_id,
+                    output_dir=output_dir,
+                    document_type=document_type,
+                    auto_orientation=auto_orientation,
+                )
+            )
+        finally:
+            metrics.inference_completed()
         await run_in_threadpool(ocr_cache.set, cache_key, result)
         request_logger.info("OCR cache stored: key={}", cache_key)
         return result, False
+    finally:
+        if slot_acquired:
+            ocr_slots.release()
+        else:
+            metrics.queue_abandoned()
 
 
 @router.post(
@@ -173,6 +194,7 @@ async def ocr(
     request_id = get_request_id() or uuid.uuid4().hex
     request_logger = logger.bind(request_id=request_id)
     path, output_dir = _prepare_request_paths(file, request_id)
+    cache_status = "unknown"
 
     try:
         content_sha256 = await run_in_threadpool(
@@ -191,6 +213,7 @@ async def ocr(
             auto_orientation,
         )
         response.headers["X-OCR-Cache"] = "HIT" if cache_hit else "MISS"
+        cache_status = "hit" if cache_hit else "miss"
         await run_in_threadpool(
             _save_json, output_dir / "ocr_result.json", ocr_result
         )
@@ -215,8 +238,16 @@ async def ocr(
             document.get("type"),
             cache_hit,
         )
+        metrics.record_ocr_request(
+            document.get("type") or document_type or "unknown",
+            cache_status,
+            "success",
+        )
         return ApiResponse.success(document, request_id=request_id)
     except Exception:
+        metrics.record_ocr_request(
+            document_type or "auto", cache_status, "error"
+        )
         request_logger.exception("OCR request failed")
         raise
     finally:
@@ -251,6 +282,7 @@ async def ocr_raw(
     request_id = get_request_id() or uuid.uuid4().hex
     request_logger = logger.bind(request_id=request_id)
     path, output_dir = _prepare_request_paths(file, request_id)
+    cache_status = "unknown"
 
     try:
         content_sha256 = await run_in_threadpool(
@@ -269,6 +301,7 @@ async def ocr_raw(
             auto_orientation,
         )
         response.headers["X-OCR-Cache"] = "HIT" if cache_hit else "MISS"
+        cache_status = "hit" if cache_hit else "miss"
         await run_in_threadpool(
             _save_json, output_dir / "ocr_result.json", ocr_result
         )
@@ -283,8 +316,14 @@ async def ocr_raw(
         )
 
         request_logger.info("Raw OCR request completed: cache_hit={}", cache_hit)
+        metrics.record_ocr_request(
+            document_type or "auto", cache_status, "success"
+        )
         return ApiResponse.success(ocr_result, request_id=request_id)
     except Exception:
+        metrics.record_ocr_request(
+            document_type or "auto", cache_status, "error"
+        )
         request_logger.exception("Raw OCR request failed")
         raise
     finally:

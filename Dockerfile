@@ -1,5 +1,8 @@
 FROM python:3.10-bookworm
 
+ARG INSTALL_OPENVINO=false
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 
@@ -15,8 +18,14 @@ RUN sed -i 's@http://deb.debian.org@https://deb.debian.org@g' /etc/apt/sources.l
 
 COPY requirements.txt .
 
-RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
+RUN pip install --index-url "$PIP_INDEX_URL" \
   -r requirements.txt
+
+# 实验镜像才安装 PaddleX HPIP/OpenVINO 和模型转换插件，生产镜像默认跳过。
+RUN if [ "$INSTALL_OPENVINO" = "true" ]; then \
+      paddlex --install hpi-cpu && \
+      paddlex --install paddle2onnx; \
+    fi
 
 COPY . .
 

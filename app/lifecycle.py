@@ -1,4 +1,5 @@
 import threading
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,19 +24,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing PaddleX OCR model...")
 
-    def init_model():
-        try:
-            ocr_service.initialize()
-            logger.info("PaddleX OCR model initialized.")
-        except Exception:
-            logger.exception("PaddleX OCR model initialization failed.")
-
-    init_thread = threading.Thread(target=init_model, daemon=True)
-    init_thread.start()
-    init_thread.join(timeout=300)
-
-    if init_thread.is_alive():
+    init_future = ocr_service.submit_initialize()
+    try:
+        init_future.result(timeout=300)
+        logger.info("PaddleX OCR model initialized.")
+    except FutureTimeoutError:
         logger.warning("PaddleX OCR model initialization timed out.")
+    except Exception:
+        logger.exception("PaddleX OCR model initialization failed.")
 
     try:
         yield
