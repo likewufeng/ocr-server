@@ -776,6 +776,20 @@ class BusinessParser:
                         addr_parts.append(first_text)
                         addr_anchor = first_block
 
+            # OCR 可能把“住”漏掉，并把“所”和地址识别在同一个文本框中。
+            if not addr_parts:
+                for line in all_lines:
+                    text = (line.text or "").strip()
+                    if not re.match(r"^所[\s:：]+", text):
+                        continue
+                    cleaned = clean_addr_text(
+                        re.sub(r"^所[\s:：]+", "", text, count=1)
+                    )
+                    if looks_like_address(cleaned):
+                        addr_parts.append(cleaned)
+                        addr_anchor = line
+                        break
+
             # C. 尝试“住”
             if not addr_parts:
                 zhu_line = find_exact("住")
@@ -794,6 +808,20 @@ class BusinessParser:
                             addr_parts.append(cleaned)
                             addr_anchor = block
                             break
+
+            # OCR 也可能把“所”漏掉，并把“住”和地址识别在同一个文本框中。
+            if not addr_parts:
+                for line in all_lines:
+                    text = (line.text or "").strip()
+                    if not re.match(r"^住[\s:：]+", text):
+                        continue
+                    cleaned = clean_addr_text(
+                        re.sub(r"^住[\s:：]+", "", text, count=1)
+                    )
+                    if looks_like_address(cleaned):
+                        addr_parts.append(cleaned)
+                        addr_anchor = line
+                        break
 
             if not addr_parts or not addr_anchor:
                 return ""

@@ -46,6 +46,27 @@ def test_ocr_cache_round_trip():
         assert cache.get("sample") == result
     print("OCR Cache Round Trip Test Passed!")
 
+
+def test_business_license_with_missing_address_prefix():
+    print("\n--- Testing Business License with Missing Address Prefix ---")
+    lines = [
+        OCRLine(text="营业执照", left=1636, top=1074, right=2682, bottom=1317, score=0.99),
+        OCRLine(text="统一社会信用代码", left=654, top=1143, right=1250, bottom=1217, score=0.99),
+        OCRLine(text="91410000692152338A", left=688, top=1221, right=1139, bottom=1278, score=0.99),
+        OCRLine(text="称河南省信息化集团有限公司", left=922, top=1591, right=1700, bottom=1652, score=0.99),
+        OCRLine(text="注册资本叁仟零柒拾柒万圆整", left=2371, top=1573, right=3238, bottom=1647, score=0.99),
+        OCRLine(text="型其他有限责任公司", left=914, top=1708, right=1496, bottom=1787, score=0.99),
+        OCRLine(text="成立日期2009年07月06日", left=2372, top=1704, right=3124, bottom=1778, score=0.99),
+        OCRLine(text="所 郑州市郑东新区明理路祭城南正商", left=2609, top=1821, right=3545, bottom=1917, score=0.95),
+        OCRLine(text="法定代表人王秀清", left=706, top=1843, right=1241, bottom=1917, score=0.99),
+        OCRLine(text="博雅广场4号楼15层", left=2733, top=1921, right=3188, bottom=1982, score=0.99),
+        OCRLine(text="经营范围", left=710, top=1969, right=1033, bottom=2047, score=0.99),
+        OCRLine(text="许可项目：软件开发", left=1071, top=1960, right=2231, bottom=2004, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "河南省郑州市郑东新区明理路祭城南正商博雅广场4号楼15层"
+    print("Business License Missing Address Prefix Test Passed!")
+
 def test_bank_card_with_typos():
     print("--- Testing Bank Card with OCR Typos ---")
     lines = [
@@ -405,6 +426,7 @@ def test_id_back_with_wrong_authority_prefix():
 if __name__ == "__main__":
     test_document_type_hint()
     test_ocr_cache_round_trip()
+    test_business_license_with_missing_address_prefix()
     test_id_front_with_split_id_label()
     test_id_front_with_split_address_and_nation()
     test_id_front_with_admin_area_typo()
