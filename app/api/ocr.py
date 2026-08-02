@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -19,10 +20,13 @@ router = APIRouter(prefix="", tags=["OCR"])
 parser = OCRParser()
 
 
-def _safe_filename(filename: Optional[str]) -> str:
+def _safe_extension(filename: Optional[str]) -> str:
     normalized = (filename or "").replace("\\", "/")
     basename = normalized.rsplit("/", 1)[-1]
-    return basename if basename not in {"", ".", ".."} else "upload.bin"
+    extension = Path(basename).suffix.lower()
+    if re.fullmatch(r"\.[a-z0-9]{1,10}", extension):
+        return extension
+    return ".bin"
 
 
 def _prepare_request_paths(file: UploadFile, request_id: str) -> tuple[Path, Path]:
@@ -30,12 +34,24 @@ def _prepare_request_paths(file: UploadFile, request_id: str) -> tuple[Path, Pat
     output_dir = OUTPUT_DIR / request_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
-    return upload_dir / _safe_filename(file.filename), output_dir
+    return upload_dir / f"original{_safe_extension(file.filename)}", output_dir
 
 
 def _save_json(path: Path, data: object) -> None:
     with path.open("w", encoding="utf-8") as output_file:
         json.dump(data, output_file, ensure_ascii=False, indent=2)
+
+
+def _save_upload_info(file: UploadFile, path: Path, output_dir: Path) -> None:
+    _save_json(
+        output_dir / "upload_info.json",
+        {
+            "original_filename": file.filename,
+            "stored_filename": path.name,
+            "content_type": file.content_type,
+            "file_size": path.stat().st_size,
+        },
+    )
 
 
 @router.post("/ocr")
@@ -47,6 +63,7 @@ async def ocr(file: UploadFile = File(...)):
     try:
         with path.open("wb") as upload_file:
             shutil.copyfileobj(file.file, upload_file)
+        _save_upload_info(file, path, output_dir)
         request_logger.info("Original upload saved: {}", path)
 
         ocr_result = ocr_service.recognize(
@@ -78,6 +95,7 @@ async def ocr_raw(file: UploadFile = File(...)):
     try:
         with path.open("wb") as upload_file:
             shutil.copyfileobj(file.file, upload_file)
+        _save_upload_info(file, path, output_dir)
         request_logger.info("Original upload saved: {}", path)
 
         ocr_result = ocr_service.recognize(
