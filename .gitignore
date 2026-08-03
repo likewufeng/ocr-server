@@ -31,3 +31,6 @@ data/outputs/
 data/logs/
 data/cache/
 data/openvino-experiment/
+
+# 打包后的文件
+release/
