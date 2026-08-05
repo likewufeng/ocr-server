@@ -125,7 +125,7 @@ OCR_PREPROCESSED_JPEG_QUALITY = min(
 OCR_CACHE_ENABLED = _env_bool("OCR_CACHE_ENABLED", True)
 
 # 模型或预处理算法发生不兼容变化时递增版本号，可立即隔离旧缓存。
-OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "2").strip()
+OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "3").strip()
 
 
 # ---------- HTTP OCR 并发 ----------

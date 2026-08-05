@@ -780,10 +780,10 @@ class BusinessParser:
             if not addr_parts:
                 for line in all_lines:
                     text = (line.text or "").strip()
-                    if not re.match(r"^所[\s:：]+", text):
+                    if not re.match(r"^所(?:[\s:：]+)?", text):
                         continue
                     cleaned = clean_addr_text(
-                        re.sub(r"^所[\s:：]+", "", text, count=1)
+                        re.sub(r"^所(?:[\s:：]+)?", "", text, count=1)
                     )
                     if looks_like_address(cleaned):
                         addr_parts.append(cleaned)
@@ -843,6 +843,7 @@ class BusinessParser:
 
             prev = addr_anchor
             seen = {id(addr_anchor)}
+            seen_texts = {clean_addr_text(part) for part in addr_parts if part}
 
             for block in blocks_below(
                 addr_anchor,
@@ -872,7 +873,10 @@ class BusinessParser:
 
                 cleaned = clean_addr_text(text)
                 if cleaned:
+                    if cleaned in seen_texts:
+                        continue
                     addr_parts.append(cleaned)
+                    seen_texts.add(cleaned)
                     prev = block
                     seen.add(id(block))
 

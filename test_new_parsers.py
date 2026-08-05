@@ -477,6 +477,21 @@ def test_id_front_with_mobile_label_typos():
     assert result["nation"] == "汉"
     print("ID Front Mobile Label Typos Test Passed!")
 
+
+def test_business_license_with_supplemented_address_crop():
+    print("\n--- Testing Business License With Supplemented Address Crop ---")
+    lines = [
+        OCRLine(text="称河南省信息化集团有限公司", left=207, top=356, right=486, bottom=373, score=0.99),
+        OCRLine(text="所", left=790, top=434, right=810, bottom=455, score=0.99),
+        OCRLine(text="郑州市郑东新区明理路祭城南正商", left=826, top=434, right=1060, bottom=455, score=0.99),
+        OCRLine(text="博雅广场4号楼15层", left=826, top=466, right=970, bottom=484, score=0.99),
+        OCRLine(text="博雅广场4号楼15层", left=826, top=466, right=970, bottom=484, score=0.99),
+        OCRLine(text="经营范围", left=163, top=480, right=268, bottom=506, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "河南省郑州市郑东新区明理路祭城南正商博雅广场4号楼15层"
+    print("Business License Supplemented Address Crop Test Passed!")
+
 def test_id_back_with_missing_authority_prefix():
     print("\n--- Testing ID Back with Missing Authority Prefix ---")
     lines = [
@@ -525,6 +540,7 @@ if __name__ == "__main__":
     test_id_front_with_missing_gender_and_nation_text()
     test_id_front_with_supplemented_nation_crop()
     test_id_front_with_mobile_label_typos()
+    test_business_license_with_supplemented_address_crop()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()

@@ -47,6 +47,7 @@ ID_FRONT_NATION_CROP_SCALE = 4
 ID_FRONT_NATION_MIN_SCORE = 0.5
 ID_FRONT_GENDER_LABEL_PATTERN = re.compile(r"性[别州]")
 ID_FRONT_NATION_LABEL_PATTERN = re.compile(r"[民闲]族\s*[\u4e00-\u9fff]")
+BUSINESS_ADDRESS_KEYWORDS = ("省", "市", "区", "县", "路", "街", "广场", "楼", "层")
 
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
@@ -549,6 +550,151 @@ class OCRService:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _is_business_license_candidate(
+        document_type: Optional[str], texts: list[str]
+    ) -> bool:
+        if document_type == "business_license":
+            return True
+        if document_type is not None:
+            return False
+
+        joined_text = "".join(texts)
+        return "营业执照" in joined_text and "统一社会信用代码" in joined_text
+
+    @staticmethod
+    def _has_business_address_label(texts: list[str]) -> bool:
+        return any(
+            "住所" in (text or "") or (text or "").strip() in {"住", "所"}
+            for text in texts
+        )
+
+    def _recover_business_license_address(
+        self,
+        image_path: str,
+        texts: list[str],
+        scores: list[float],
+        boxes: list[list],
+        polys: list[list],
+        output_dir: Optional[Union[str, Path]],
+        request_logger,
+        document_type: Optional[str],
+    ) -> None:
+        """对住所标签及首行地址漏检的营业执照做一次局部放大补识别。"""
+        if (
+            not self._is_business_license_candidate(document_type, texts)
+            or self._has_business_address_label(texts)
+            or not boxes
+        ):
+            return
+
+        document_width = max(int(box[2]) for box in boxes if len(box) >= 4)
+        tail_index = next(
+            (
+                index
+                for index, (text, box) in enumerate(zip(texts, boxes))
+                if len(box) >= 4
+                and int(box[0]) >= document_width * 0.55
+                and any(keyword in (text or "") for keyword in BUSINESS_ADDRESS_KEYWORDS)
+            ),
+            None,
+        )
+        if tail_index is None:
+            return
+
+        image = cv2.imread(image_path)
+        if image is None:
+            request_logger.warning("Business address crop skipped: failed to load image")
+            return
+
+        tail_box = boxes[tail_index]
+        left, top, right, bottom = (int(value) for value in tail_box[:4])
+        tail_width = max(1, right - left)
+        tail_height = max(1, bottom - top)
+        image_height, image_width = image.shape[:2]
+        crop_left = max(0, left - max(180, int(tail_width * 1.25)))
+        crop_right = min(image_width, right + max(110, int(tail_width * 0.75)))
+        crop_top = max(0, top - max(56, tail_height * 3))
+        crop_bottom = min(image_height, bottom + max(26, int(tail_height * 1.5)))
+        if crop_right <= crop_left or crop_bottom <= crop_top:
+            return
+
+        crop = image[crop_top:crop_bottom, crop_left:crop_right]
+        enlarged_crop = cv2.resize(
+            crop,
+            None,
+            fx=ID_FRONT_NATION_CROP_SCALE,
+            fy=ID_FRONT_NATION_CROP_SCALE,
+            interpolation=cv2.INTER_CUBIC,
+        )
+
+        temporary_crop = None
+        if output_dir is not None:
+            crop_path = Path(output_dir) / "business_license_address_crop.jpg"
+        else:
+            descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+            os.close(descriptor)
+            crop_path = Path(temporary_crop)
+
+        try:
+            if not cv2.imwrite(str(crop_path), enlarged_crop):
+                request_logger.warning("Business address crop skipped: failed to save crop")
+                return
+
+            crop_predict_options = {
+                "text_det_limit_side_len": 1280,
+                "text_det_limit_type": "max",
+            }
+            if not self.pipeline_uses_fine_tuned_detector:
+                crop_predict_options.update(
+                    {
+                        "use_doc_orientation_classify": False,
+                        "use_doc_unwarping": False,
+                    }
+                )
+
+            for result in self.pipeline.predict(str(crop_path), **crop_predict_options):
+                for index, score in enumerate(result["rec_scores"]):
+                    text = self.postprocess_texts([result["rec_texts"][index]])[0]
+                    if score < 0.7 or not text:
+                        continue
+                    if not (
+                        text in {"住", "所"}
+                        or text.startswith("所")
+                        or any(keyword in text for keyword in BUSINESS_ADDRESS_KEYWORDS)
+                    ):
+                        continue
+
+                    crop_box = result["rec_boxes"][index].tolist()
+                    mapped_box = [
+                        int(crop_left + value / ID_FRONT_NATION_CROP_SCALE)
+                        if position % 2 == 0
+                        else int(crop_top + value / ID_FRONT_NATION_CROP_SCALE)
+                        for position, value in enumerate(crop_box)
+                    ]
+                    texts.append(text)
+                    scores.append(float(score))
+                    boxes.append(mapped_box)
+                    polys.append(
+                        [
+                            [mapped_box[0], mapped_box[1]],
+                            [mapped_box[2], mapped_box[1]],
+                            [mapped_box[2], mapped_box[3]],
+                            [mapped_box[0], mapped_box[3]],
+                        ]
+                    )
+
+                request_logger.info("Business license address recovered from crop")
+                return
+        except Exception as exc:
+            request_logger.warning("Business address crop OCR failed: {}", exc)
+        finally:
+            if temporary_crop:
+                try:
+                    os.remove(temporary_crop)
+                except OSError:
+                    pass
+
     def recognize(
         self,
         image_path: str,
@@ -638,6 +784,16 @@ class OCRService:
                 texts = self.postprocess_texts(texts)
 
                 self._recover_id_front_nation(
+                    ocr_input_path,
+                    texts,
+                    scores,
+                    boxes,
+                    polys,
+                    output_dir,
+                    request_logger,
+                    document_type,
+                )
+                self._recover_business_license_address(
                     ocr_input_path,
                     texts,
                     scores,
