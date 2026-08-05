@@ -388,6 +388,31 @@ def test_id_front_birthday_fallback_from_id_number():
     assert result["birthday"] == "1991年8月15日"
     print("ID Front Birthday Fallback Test Passed!")
 
+
+def test_id_front_with_misrecognized_name_label():
+    print("\n--- Testing ID Front With Misrecognized Name Label ---")
+    lines = [
+        OCRLine(text="鲜名吴烽", left=458, top=633, right=689, bottom=695, score=0.961513340473175),
+        OCRLine(text="性别男", left=448, top=703, right=610, bottom=741, score=0.9997360110282898),
+        OCRLine(text="民族汉", left=654, top=698, right=794, bottom=736, score=0.9980664253234863),
+        OCRLine(text="出生", left=441, top=765, right=526, bottom=792, score=0.9727777242660522),
+        OCRLine(text="1991年8月15日", left=547, top=750, right=880, bottom=798, score=0.9987314939498901),
+        OCRLine(text="住址", left=419, top=828, right=530, bottom=863, score=0.9332908391952515),
+        OCRLine(text="河南省渑池县洪阳镇德厚", left=512, top=819, right=969, bottom=865, score=0.9498217105865479),
+        OCRLine(text="村七组1号", left=526, top=863, right=736, bottom=920, score=0.98615962266922),
+        OCRLine(text="公民身份号码", left=366, top=1014, right=631, bottom=1063, score=0.9993293285369873),
+        OCRLine(text="411221199108152534", left=682, top=997, right=1317, bottom=1061, score=0.9977953433990479),
+    ]
+    result = OCRParser().parse(Layout(lines))
+    assert result["type"] == "id_front"
+    assert result["name"] == "吴烽"
+    assert result["gender"] == "男"
+    assert result["nation"] == "汉"
+    assert result["birthday"] == "1991年8月15日"
+    assert result["address"] == "河南省渑池县洪阳镇德厚村七组1号"
+    assert result["id_number"] == "411221199108152534"
+    print("ID Front Misrecognized Name Label Test Passed!")
+
 def test_id_back_with_missing_authority_prefix():
     print("\n--- Testing ID Back with Missing Authority Prefix ---")
     lines = [
@@ -432,6 +457,7 @@ if __name__ == "__main__":
     test_id_front_with_admin_area_typo()
     test_id_front_with_split_birthday_and_admin_area_typo()
     test_id_front_birthday_fallback_from_id_number()
+    test_id_front_with_misrecognized_name_label()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()

@@ -15,6 +15,33 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 class IDFrontParser:
+    _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名)[:：]?")
+    _PERSON_NAME_PATTERN = re.compile(r"^[\u4e00-\u9fff·]{2,20}$")
+
+    @classmethod
+    def _find_name_label_line(cls, layout: Layout, gender_line=None):
+        line = layout.find("姓名")
+        if line:
+            return line
+
+        for item in layout.all() or []:
+            text = re.sub(r"\s+", "", item.text or "")
+            if not cls._NAME_LABEL_PATTERN.match(text):
+                continue
+            # 姓名位于性别字段上方；该约束避免将其它“...名”文本误判为姓名。
+            if gender_line and item.center_y >= gender_line.center_y:
+                continue
+            return item
+
+        return None
+
+    @classmethod
+    def _clean_person_name(cls, text: str) -> str:
+        candidate = re.sub(r"\s+", "", text or "").strip(":：")
+        for keyword in ("性别", "民族", "出生", "住址", "公民身份"):
+            candidate = candidate.split(keyword, 1)[0]
+        return candidate if cls._PERSON_NAME_PATTERN.fullmatch(candidate) else ""
+
     @staticmethod
     def _find_id_number_label_line(layout: Layout):
         line = layout.find_any("公民身份号码", "公民身份证号码", "身份证号码", "身份号码", "公民身份")
@@ -44,24 +71,26 @@ class IDFrontParser:
 
         # ---------------- 姓名 ----------------
 
-        name_line = layout.find("姓名")
+        gender_line = layout.find("性别")
+        name_line = self._find_name_label_line(layout, gender_line)
 
         if name_line:
-
-            # OCR 已经识别成：姓名吴烽
-            m = re.search(r"姓名\s*(.+)", name_line.text)
-            if m:
-                data["name"] = m.group(1).strip()
+            normalized_name_text = re.sub(r"\s+", "", name_line.text or "")
+            label_match = self._NAME_LABEL_PATTERN.match(normalized_name_text)
+            if label_match:
+                data["name"] = self._clean_person_name(
+                    normalized_name_text[label_match.end():]
+                )
 
             # 如果没有识别出来，再走布局
             if not data["name"]:
                 right = layout.right_of(name_line)
                 if right:
-                    data["name"] = "".join(i.text for i in right).strip()
+                    data["name"] = self._clean_person_name(
+                        "".join(i.text for i in right)
+                    )
 
         # ---------------- 性别、民族 ----------------
-
-        gender_line = layout.find("性别")
 
         if gender_line:
 
