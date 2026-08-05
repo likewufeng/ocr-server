@@ -5,6 +5,7 @@ import json
 import re
 import os
 import time
+import tempfile
 from pathlib import Path
 import cv2
 import numpy as np
@@ -42,6 +43,10 @@ DOCUMENT_DETECTION_SIDE_LIMITS = {
     "id_back": 768,
 }
 DEFAULT_DETECTION_SIDE_LIMIT = 960
+ID_FRONT_NATION_CROP_SCALE = 4
+ID_FRONT_NATION_MIN_SCORE = 0.5
+ID_FRONT_GENDER_LABEL_PATTERN = re.compile(r"性[别州]")
+ID_FRONT_NATION_LABEL_PATTERN = re.compile(r"[民闲]族\s*[\u4e00-\u9fff]")
 
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
@@ -401,6 +406,149 @@ class OCRService:
 
         return processed
 
+    @staticmethod
+    def _is_id_front_candidate(
+        document_type: Optional[str], texts: list[str]
+    ) -> bool:
+        if document_type == "id_front":
+            return True
+        if document_type is not None:
+            return False
+
+        joined_text = "".join(texts)
+        return (
+            bool(ID_FRONT_GENDER_LABEL_PATTERN.search(joined_text))
+            and "住址" in joined_text
+            and bool(re.search(r"\d{17}[0-9Xx]", joined_text))
+        )
+
+    @staticmethod
+    def _has_id_front_nation(texts: list[str]) -> bool:
+        return any(
+            ID_FRONT_NATION_LABEL_PATTERN.search(text or "")
+            for text in texts
+        )
+
+    def _recover_id_front_nation(
+        self,
+        image_path: str,
+        texts: list[str],
+        scores: list[float],
+        boxes: list[list],
+        polys: list[list],
+        output_dir: Optional[Union[str, Path]],
+        request_logger,
+        document_type: Optional[str],
+    ) -> None:
+        """对缺少民族字段的身份证正面做一次局部放大补识别。"""
+        if (
+            not self._is_id_front_candidate(document_type, texts)
+            or self._has_id_front_nation(texts)
+        ):
+            return
+
+        gender_index = next(
+            (
+                index
+                for index, text in enumerate(texts)
+                if ID_FRONT_GENDER_LABEL_PATTERN.search(text)
+            ),
+            None,
+        )
+        if gender_index is None:
+            return
+
+        image = cv2.imread(image_path)
+        if image is None:
+            request_logger.warning("Nation crop skipped: failed to load image")
+            return
+
+        gender_box = boxes[gender_index]
+        left, top, right, bottom = (int(value) for value in gender_box[:4])
+        label_width = max(1, right - left)
+        label_height = max(1, bottom - top)
+        image_height, image_width = image.shape[:2]
+        crop_left = min(
+            image_width, right + max(70, int(label_width * 0.7))
+        )
+        crop_right = min(
+            image_width, right + max(280, int(label_width * 3)))
+        crop_top = max(0, top - int(label_height * 0.75))
+        crop_bottom = min(image_height, bottom + int(label_height * 0.75))
+        if crop_right <= crop_left or crop_bottom <= crop_top:
+            return
+
+        crop = image[crop_top:crop_bottom, crop_left:crop_right]
+        enlarged_crop = cv2.resize(
+            crop,
+            None,
+            fx=ID_FRONT_NATION_CROP_SCALE,
+            fy=ID_FRONT_NATION_CROP_SCALE,
+            interpolation=cv2.INTER_CUBIC,
+        )
+
+        temporary_crop = None
+        if output_dir is not None:
+            crop_path = Path(output_dir) / "id_front_nation_crop.jpg"
+        else:
+            descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+            os.close(descriptor)
+            crop_path = Path(temporary_crop)
+
+        try:
+            if not cv2.imwrite(str(crop_path), enlarged_crop):
+                request_logger.warning("Nation crop skipped: failed to save crop")
+                return
+
+            crop_predict_options = {
+                "text_det_limit_side_len": 960,
+                "text_det_limit_type": "max",
+            }
+            if not self.pipeline_uses_fine_tuned_detector:
+                crop_predict_options.update(
+                    {
+                        "use_doc_orientation_classify": False,
+                        "use_doc_unwarping": False,
+                    }
+                )
+
+            crop_texts = []
+            for result in self.pipeline.predict(str(crop_path), **crop_predict_options):
+                crop_texts = list(
+                    zip(result["rec_texts"], result["rec_scores"])
+                )
+
+            for text, score in crop_texts:
+                normalized_text = self.postprocess_texts([text])[0]
+                if score < ID_FRONT_NATION_MIN_SCORE or "族" not in normalized_text:
+                    continue
+
+                texts.append(normalized_text)
+                scores.append(float(score))
+                boxes.append([crop_left, crop_top, crop_right, crop_bottom])
+                polys.append(
+                    [
+                        [crop_left, crop_top],
+                        [crop_right, crop_top],
+                        [crop_right, crop_bottom],
+                        [crop_left, crop_bottom],
+                    ]
+                )
+                request_logger.info(
+                    "ID front nation recovered from crop: text={}, score={:.3f}",
+                    normalized_text,
+                    score,
+                )
+                return
+        except Exception as exc:
+            request_logger.warning("Nation crop OCR failed: {}", exc)
+        finally:
+            if temporary_crop:
+                try:
+                    os.remove(temporary_crop)
+                except OSError:
+                    pass
+
     def recognize(
         self,
         image_path: str,
@@ -488,6 +636,17 @@ class OCRService:
 
                 # 文本后处理
                 texts = self.postprocess_texts(texts)
+
+                self._recover_id_front_nation(
+                    ocr_input_path,
+                    texts,
+                    scores,
+                    boxes,
+                    polys,
+                    output_dir,
+                    request_logger,
+                    document_type,
+                )
 
                 doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
                 if not self.pipeline_uses_fine_tuned_detector and (

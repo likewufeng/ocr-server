@@ -436,6 +436,47 @@ def test_id_front_with_missing_gender_and_nation_text():
     assert result["id_number"] == "411221199108152534"
     print("ID Front Missing Gender And Nation Text Test Passed!")
 
+
+def test_id_front_with_supplemented_nation_crop():
+    print("\n--- Testing ID Front With Supplemented Nation Crop ---")
+    lines = [
+        OCRLine(text="性别", left=48, top=140, right=145, bottom=180, score=0.80),
+        OCRLine(text="族汉", left=225, top=110, right=425, bottom=210, score=0.84),
+        OCRLine(
+            text="411221199108152534",
+            left=289,
+            top=450,
+            right=761,
+            bottom=496,
+            score=0.99,
+        ),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["nation"] == "汉"
+    print("ID Front Supplemented Nation Crop Test Passed!")
+
+
+def test_id_front_with_mobile_label_typos():
+    print("\n--- Testing ID Front With Mobile Label Typos ---")
+    lines = [
+        OCRLine(text="财省吴烽", left=147, top=64, right=255, bottom=115, score=0.75),
+        OCRLine(text="性州男", left=48, top=140, right=190, bottom=180, score=0.80),
+        OCRLine(text="闲族汉", left=225, top=140, right=380, bottom=180, score=0.84),
+        OCRLine(
+            text="411221199108152534",
+            left=289,
+            top=450,
+            right=761,
+            bottom=496,
+            score=0.99,
+        ),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["name"] == "吴烽"
+    assert result["gender"] == "男"
+    assert result["nation"] == "汉"
+    print("ID Front Mobile Label Typos Test Passed!")
+
 def test_id_back_with_missing_authority_prefix():
     print("\n--- Testing ID Back with Missing Authority Prefix ---")
     lines = [
@@ -482,6 +523,8 @@ if __name__ == "__main__":
     test_id_front_birthday_fallback_from_id_number()
     test_id_front_with_misrecognized_name_label()
     test_id_front_with_missing_gender_and_nation_text()
+    test_id_front_with_supplemented_nation_crop()
+    test_id_front_with_mobile_label_typos()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()

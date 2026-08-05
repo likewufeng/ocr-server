@@ -15,7 +15,9 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 class IDFrontParser:
-    _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名)[:：]?")
+    _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名|财省)[:：]?")
+    _GENDER_LABEL_PATTERN = re.compile(r"性[别州]")
+    _NATION_LABEL_PATTERN = re.compile(r"[民闲]族")
     _PERSON_NAME_PATTERN = re.compile(r"^[\u4e00-\u9fff·]{2,20}$")
     _NON_NAME_TEXTS = {
         "性别", "民族", "出生", "住址", "公民身份", "公民身份号码",
@@ -29,6 +31,14 @@ class IDFrontParser:
         "俄罗斯", "鄂温克", "德昂", "保安", "裕固", "京", "塔塔尔", "独龙",
         "鄂伦春", "赫哲", "门巴", "珞巴", "基诺",
     }
+
+    @classmethod
+    def _extract_nation(cls, text: str) -> str:
+        candidate = re.sub(r"\s+", "", text or "")
+        for nation in sorted(cls._NATION_NAMES, key=len, reverse=True):
+            if candidate == nation or candidate.endswith(f"族{nation}"):
+                return nation
+        return ""
 
     @classmethod
     def _find_name_label_line(cls, layout: Layout, gender_line=None):
@@ -50,11 +60,20 @@ class IDFrontParser:
     @classmethod
     def _clean_person_name(cls, text: str) -> str:
         candidate = re.sub(r"\s+", "", text or "").strip(":：")
+        if candidate.startswith("财省"):
+            candidate = candidate[2:]
         for keyword in ("性别", "民族", "出生", "住址", "公民身份"):
             candidate = candidate.split(keyword, 1)[0]
         if candidate in cls._NON_NAME_TEXTS:
             return ""
         return candidate if cls._PERSON_NAME_PATTERN.fullmatch(candidate) else ""
+
+    @classmethod
+    def _find_gender_line(cls, layout: Layout):
+        for item in layout.all() or []:
+            if cls._GENDER_LABEL_PATTERN.search(item.text or ""):
+                return item
+        return None
 
     @classmethod
     def _find_name_without_label(cls, layout: Layout, gender_line) -> str:
@@ -110,7 +129,7 @@ class IDFrontParser:
 
         # ---------------- 姓名 ----------------
 
-        gender_line = layout.find("性别")
+        gender_line = self._find_gender_line(layout)
         name_line = self._find_name_label_line(layout, gender_line)
 
         if name_line:
@@ -138,19 +157,19 @@ class IDFrontParser:
 
             text = "".join(i.text for i in layout.same_row(gender_line, tolerance=30))
 
-            m = re.search(r"性别\s*(男|女)", text)
+            m = re.search(r"性[别州]\s*(男|女)", text)
             if m:
                 data["gender"] = m.group(1)
 
-            m = re.search(r"民族\s*([\u4e00-\u9fff]{1,8})", text)
+            m = re.search(r"[民闲]族\s*([\u4e00-\u9fff]{1,8})", text)
             if m:
                 data["nation"] = m.group(1).strip()
 
             if not data["nation"]:
                 for item in layout.same_row(gender_line, tolerance=30):
-                    candidate = re.sub(r"\s+", "", item.text or "")
-                    if candidate in self._NATION_NAMES:
-                        data["nation"] = candidate
+                    nation = self._extract_nation(item.text)
+                    if nation:
+                        data["nation"] = nation
                         break
 
         # ---------------- 出生 ----------------
