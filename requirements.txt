@@ -2,8 +2,8 @@ fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
 
-paddlepaddle==3.1.1
-paddlex[ocr]==3.1.0
+paddlepaddle==3.3.1
+paddlex[ocr]==3.7.2
 
 numpy<2
 opencv-python-headless

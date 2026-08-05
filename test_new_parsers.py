@@ -336,6 +336,23 @@ def test_id_front_with_split_address_and_nation():
     assert result["id_number"] == "411221199108152534"
     print("ID Front Split Address Test Passed!")
 
+def test_id_front_with_merged_address_label_and_continuation():
+    print("\n--- Testing ID Front With Merged Address Label ---")
+    lines = [
+        OCRLine(text="姓名吴烽", left=361, top=186, right=595, bottom=250, score=0.99),
+        OCRLine(text="性别男", left=369, top=273, right=525, bottom=317, score=0.99),
+        OCRLine(text="民族汉", left=514, top=273, right=703, bottom=311, score=0.99),
+        OCRLine(text="出生1991年8月15日", left=373, top=334, right=782, bottom=385, score=0.99),
+        OCRLine(text="住址河南省渑池县洪阳镇德厚", left=371, top=406, right=852, bottom=460, score=0.99),
+        OCRLine(text="村七组1号", left=485, top=457, right=664, bottom=505, score=0.99),
+        OCRLine(text="公民身份号码", left=380, top=589, right=602, bottom=641, score=0.99),
+        OCRLine(text="411221199108152534", left=577, top=575, right=1114, bottom=633, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["address"] == "河南省渑池县洪阳镇德厚村七组1号", result
+    print("ID Front Merged Address Label Test Passed!")
+
+
 def test_id_front_with_admin_area_typo():
     print("\n--- Testing ID Front with Admin Area Typo ---")
     lines = [
@@ -598,6 +615,7 @@ if __name__ == "__main__":
     test_business_license_with_missing_address_prefix()
     test_id_front_with_split_id_label()
     test_id_front_with_split_address_and_nation()
+    test_id_front_with_merged_address_label_and_continuation()
     test_id_front_with_admin_area_typo()
     test_id_front_with_split_birthday_and_admin_area_typo()
     test_id_front_birthday_fallback_from_id_number()

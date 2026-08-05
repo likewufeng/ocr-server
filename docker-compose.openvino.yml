@@ -8,7 +8,9 @@ x-experiment-service: &experiment-service
     - ./data/openvino-experiment/cache:/app/data/cache
     - ./models:/app/models:ro
   environment: &experiment-environment
+    OCR_MODEL_VERSION: ${OCR_MODEL_VERSION:-v6}
     OCR_MODEL_PROFILE: ${OCR_MODEL_PROFILE:-mobile}
+    OCR_MODEL_ENGINE: ${OCR_MODEL_ENGINE:-auto}
     OCR_DEVICE: cpu
     OCR_USE_FINE_TUNED_MODEL: "false"
     OCR_ENABLE_MKLDNN: "true"

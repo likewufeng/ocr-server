@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 from paddlex import create_pipeline
-from paddlex.inference.utils.pp_option import PaddlePredictorOption
+from paddlex.inference import PaddlePredictorOption
 
 from app.utils.logger import logger
 from app.utils.metrics import metrics
@@ -26,6 +26,9 @@ from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
 from app.config import OCR_ID_FRONT_MIN_SCORE
 from app.config import OCR_MODEL_PROFILE
+from app.config import OCR_MODEL_ENGINE
+from app.config import OCR_MODEL_VARIANT
+from app.config import OCR_MODEL_VERSION
 from app.config import OCR_PREPROCESSED_JPEG_QUALITY
 from app.config import OCR_SAVE_PREPROCESSED_IMAGE
 from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
@@ -35,8 +38,26 @@ from app.config import OCR_USE_FINE_TUNED_MODEL
 
 # 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
-official_detection_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_det"
-official_recognition_model = f"PP-OCRv5_{OCR_MODEL_PROFILE}_rec"
+official_detection_model = f"PP-OCR{OCR_MODEL_VERSION}_{OCR_MODEL_VARIANT}_det"
+official_recognition_model = f"PP-OCR{OCR_MODEL_VERSION}_{OCR_MODEL_VARIANT}_rec"
+use_dynamic_official_models = (
+    OCR_INFERENCE_BACKEND == "paddle" and OCR_MODEL_ENGINE == "paddle_dynamic"
+)
+official_model_dir_suffix = "_safetensors" if use_dynamic_official_models else ""
+official_detection_model_path = (
+    MODEL_DIR
+    / "official_models"
+    / f"{official_detection_model}{official_model_dir_suffix}"
+)
+official_recognition_model_path = (
+    MODEL_DIR
+    / "official_models"
+    / f"{official_recognition_model}{official_model_dir_suffix}"
+)
+doc_orientation_model_path = (
+    MODEL_DIR / "official_models" / "PP-LCNet_x1_0_doc_ori"
+)
+doc_unwarping_model_path = MODEL_DIR / "official_models" / "UVDoc"
 
 DOCUMENT_DETECTION_SIDE_LIMITS = {
     "id_front": 768,
@@ -64,6 +85,19 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     }
     if use_fine_tuned:
         text_detection_config["model_dir"] = fine_tuned_model_path
+    elif official_detection_model_path.is_dir():
+        text_detection_config["model_dir"] = str(official_detection_model_path)
+    if not use_fine_tuned and OCR_INFERENCE_BACKEND == "paddle":
+        text_detection_config["engine"] = OCR_MODEL_ENGINE
+
+    text_recognition_config = {
+        "model_name": official_recognition_model,
+        "batch_size": OCR_TEXT_RECOGNITION_BATCH_SIZE,
+    }
+    if official_recognition_model_path.is_dir():
+        text_recognition_config["model_dir"] = str(official_recognition_model_path)
+    if OCR_INFERENCE_BACKEND == "paddle":
+        text_recognition_config["engine"] = OCR_MODEL_ENGINE
 
     config = {
         "pipeline_name": "OCR",
@@ -73,10 +107,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
         "batch_size": 1,
         "SubModules": {
             "TextDetection": text_detection_config,
-            "TextRecognition": {
-                "model_name": official_recognition_model,
-                "batch_size": OCR_TEXT_RECOGNITION_BATCH_SIZE,
-            },
+            "TextRecognition": text_recognition_config,
         },
     }
 
@@ -87,11 +118,19 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
                 "module_name": "doc_text_orientation",
                 "model_name": "PP-LCNet_x1_0_doc_ori",
             }
+            if doc_orientation_model_path.is_dir():
+                doc_preprocessor_modules["DocOrientationClassify"]["model_dir"] = str(
+                    doc_orientation_model_path
+                )
         if OCR_USE_DOC_UNWARPING:
             doc_preprocessor_modules["DocUnwarping"] = {
                 "module_name": "image_unwarping",
                 "model_name": "UVDoc",
             }
+            if doc_unwarping_model_path.is_dir():
+                doc_preprocessor_modules["DocUnwarping"]["model_dir"] = str(
+                    doc_unwarping_model_path
+                )
 
         config["SubPipelines"] = {
             "DocPreprocessor": {
@@ -168,7 +207,9 @@ class OCRService:
 
         settings = {
             "version": OCR_CACHE_VERSION,
+            "model_version": OCR_MODEL_VERSION,
             "profile": OCR_MODEL_PROFILE,
+            "model_engine": OCR_MODEL_ENGINE,
             "fine_tuned": OCR_USE_FINE_TUNED_MODEL,
             "inference_backend": OCR_INFERENCE_BACKEND,
             "orientation": self._effective_orientation(auto_orientation),
@@ -199,9 +240,14 @@ class OCRService:
                 logger.warning("Fine-tuned detector failed to load, falling back to official PaddleX model: {}", exc)
 
         logger.info(
-            "Initializing PaddleX OCR Pipeline: profile={}, device={}, "
+            "Initializing PaddleX OCR Pipeline: version={}, profile={}, "
+            "detector={}, recognizer={}, engine={}, device={}, "
             "backend={}, cpu_threads={}, rec_batch_size={}, mkldnn={}.",
+            OCR_MODEL_VERSION,
             OCR_MODEL_PROFILE,
+            official_detection_model,
+            official_recognition_model,
+            OCR_MODEL_ENGINE,
             OCR_DEVICE,
             OCR_INFERENCE_BACKEND,
             OCR_CPU_THREADS,
@@ -215,7 +261,7 @@ class OCRService:
         metrics.set_model_ready(True)
         logger.info(
             "PaddleX OCR Pipeline Ready with official {} models.",
-            OCR_MODEL_PROFILE,
+            OCR_MODEL_VERSION,
         )
 
     def submit_initialize(self):

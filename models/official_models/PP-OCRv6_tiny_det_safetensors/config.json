@@ -1,0 +1,36 @@
+{
+    "model_type": "pp_ocrv6_small_det",
+    "reduction": 4,
+    "layer_list_out_channels": [32, 48, 64, 160],
+    "neck_out_channels": 64,
+    "kernel_list": [3, 2, 2],
+    "interpolate_mode": "nearest",
+    "dilated_kernel_size": 5,
+    "backbone_config": {
+        "model_type": "pp_lcnet_v4",
+        "stem_channels": [3, 16, 32],
+        "stem_type": "large",
+        "out_features": ["stage1", "stage2", "stage3", "stage4"],
+        "out_indices": [1, 2, 3, 4],
+        "block_configs": [
+            [[3, 32, 32, 1, true], [3, 32, 32, 1, false]],
+            [
+                [3, 32, 48, 2, false],
+                [3, 48, 48, 1, true],
+                [3, 48, 48, 1, false]
+            ],
+            [
+                [3, 48, 64, 2, false],
+                [3, 64, 64, 1, true],
+                [3, 64, 64, 1, false],
+                [3, 64, 64, 1, true],
+                [3, 64, 64, 1, false]
+            ],
+            [
+                [3, 64, 160, 2, false],
+                [3, 160, 160, 1, true],
+                [3, 160, 160, 1, false]
+            ]
+        ]
+    }
+}

@@ -12,7 +12,9 @@ from app.config import (
     OCR_INFERENCE_BACKEND,
     OCR_CPU_THREADS,
     OCR_MAX_CONCURRENT_REQUESTS,
+    OCR_MODEL_ENGINE,
     OCR_MODEL_PROFILE,
+    OCR_MODEL_VERSION,
     OCR_TEXT_RECOGNITION_BATCH_SIZE,
     OCR_USE_FINE_TUNED_MODEL,
 )
@@ -178,7 +180,9 @@ class MetricsCollector:
                 "model": {
                     "device": OCR_DEVICE,
                     "inference_backend": OCR_INFERENCE_BACKEND,
+                    "version": OCR_MODEL_VERSION,
                     "profile": OCR_MODEL_PROFILE,
+                    "engine": OCR_MODEL_ENGINE,
                     "fine_tuned_detector": OCR_USE_FINE_TUNED_MODEL,
                     "cpu_threads": OCR_CPU_THREADS,
                     "recognition_batch_size": OCR_TEXT_RECOGNITION_BATCH_SIZE,
@@ -250,7 +254,9 @@ class MetricsCollector:
                     _label_text((
                         ("device", OCR_DEVICE),
                         ("inference_backend", OCR_INFERENCE_BACKEND),
+                        ("model_version", OCR_MODEL_VERSION),
                         ("model_profile", OCR_MODEL_PROFILE),
+                        ("model_engine", OCR_MODEL_ENGINE),
                         ("fine_tuned_detector", str(OCR_USE_FINE_TUNED_MODEL).lower()),
                         ("cpu_threads", OCR_CPU_THREADS),
                         ("max_concurrent_requests", OCR_MAX_CONCURRENT_REQUESTS),

@@ -53,12 +53,45 @@ CLEANUP_INTERVAL_SECONDS = int(os.getenv("CLEANUP_INTERVAL_SECONDS", "3600"))
 
 # ---------- OCR 模型选择 ----------
 # true 只替换文字检测模型为 models/my_bank_card_det；识别模型仍使用官方模型。
-OCR_USE_FINE_TUNED_MODEL = _env_bool("OCR_USE_FINE_TUNED_MODEL", True)
+OCR_USE_FINE_TUNED_MODEL = _env_bool("OCR_USE_FINE_TUNED_MODEL", False)
 
-# mobile 适合无 GPU 的 CPU 服务器；server 精度更高，推荐在 GPU 上使用。
-OCR_MODEL_PROFILE = os.getenv("OCR_MODEL_PROFILE", "server").strip().lower()
-if OCR_MODEL_PROFILE not in {"mobile", "server"}:
-    raise ValueError("OCR_MODEL_PROFILE must be 'mobile' or 'server'")
+# OCR_MODEL_VERSION controls the official OCR model family. v6 is the current default.
+OCR_MODEL_VERSION = os.getenv("OCR_MODEL_VERSION", "v6").strip().lower()
+if OCR_MODEL_VERSION not in {"v5", "v6"}:
+    raise ValueError("OCR_MODEL_VERSION must be 'v5' or 'v6'")
+
+OCR_MODEL_PROFILE = os.getenv("OCR_MODEL_PROFILE", "mobile").strip().lower()
+_OCR_MODEL_VARIANTS = {
+    "v5": {"mobile": "mobile", "server": "server"},
+    "v6": {
+        "mobile": "tiny",
+        "server": "medium",
+        "tiny": "tiny",
+        "small": "small",
+        "medium": "medium",
+    },
+}
+if OCR_MODEL_PROFILE not in _OCR_MODEL_VARIANTS[OCR_MODEL_VERSION]:
+    allowed_profiles = ", ".join(_OCR_MODEL_VARIANTS[OCR_MODEL_VERSION])
+    raise ValueError(
+        f"OCR_MODEL_PROFILE for {OCR_MODEL_VERSION} must be one of: {allowed_profiles}"
+    )
+
+OCR_MODEL_VARIANT = _OCR_MODEL_VARIANTS[OCR_MODEL_VERSION][OCR_MODEL_PROFILE]
+
+# PP-OCRv6 static PIR models currently fail in PaddlePaddle's Windows CPU executor.
+# Auto uses Safetensors dynamic inference on Windows and static inference on Linux.
+OCR_MODEL_ENGINE = os.getenv("OCR_MODEL_ENGINE", "auto").strip().lower()
+if OCR_MODEL_ENGINE == "auto":
+    OCR_MODEL_ENGINE = (
+        "paddle_dynamic"
+        if os.name == "nt" and OCR_MODEL_VERSION == "v6"
+        else "paddle_static"
+    )
+if OCR_MODEL_ENGINE not in {"paddle_static", "paddle_dynamic"}:
+    raise ValueError(
+        "OCR_MODEL_ENGINE must be 'auto', 'paddle_static' or 'paddle_dynamic'"
+    )
 
 # 支持 cpu、gpu:0 等 PaddleX 设备写法。
 # 使用 GPU 还必须准备 GPU 版 PaddlePaddle 和 CUDA 运行环境。
@@ -125,7 +158,7 @@ OCR_PREPROCESSED_JPEG_QUALITY = min(
 OCR_CACHE_ENABLED = _env_bool("OCR_CACHE_ENABLED", True)
 
 # 模型或预处理算法发生不兼容变化时递增版本号，可立即隔离旧缓存。
-OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "3").strip()
+OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "4").strip()
 
 
 # ---------- HTTP OCR 并发 ----------

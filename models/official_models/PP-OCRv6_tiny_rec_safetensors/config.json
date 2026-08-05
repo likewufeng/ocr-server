@@ -1,0 +1,27 @@
+{
+    "model_type": "pp_ocrv6_tiny_rec",
+    "backbone_config": {
+        "model_type": "pp_lcnet_v4",
+        "stem_channels": [3, 24, 48],
+        "stem_type": "small",
+        "out_features": ["stage1", "stage2", "stage3", "stage4"],
+        "out_indices": [1, 2, 3, 4],
+        "block_configs": [
+            [[3, 48, 48, 1, true]],
+            [[3, 48, 48, 1, false]],
+            [
+                [3, 48, 96, [2, 1], false],
+                [3, 96, 96, 1, true],
+                [3, 96, 96, 1, false]
+            ],
+            [
+                [3, 96, 160, [2, 1], false],
+                [3, 160, 160, 1, true],
+                [3, 160, 160, 1, false],
+                [3, 160, 160, 1, false]
+            ]
+        ]
+    },
+    "hidden_size": 80,
+    "head_out_channels": 6906
+}

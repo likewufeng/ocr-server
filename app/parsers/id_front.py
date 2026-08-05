@@ -224,9 +224,16 @@ class IDFrontParser:
 
             # 地址列范围：和首行大致同列即可
             # 注意：这里不要用严格的 nearest_below，因为下一行可能和上一行轻微重叠
-            content_left = min(
-                [addr_line.right] + [line.left for line in same_row_addr_lines]
-            )
+            if first_addr:
+                # PP-OCRv6 may merge the address label and first address line into
+                # one box. Estimate the content column so narrower continuation
+                # lines are not rejected as being too far left.
+                label_width = min(100, max(40, addr_line.height * 2))
+                content_left = addr_line.left + label_width
+            else:
+                content_left = min(
+                    [addr_line.right] + [line.left for line in same_row_addr_lines]
+                )
             col_left = max(addr_line.left - 50, content_left - 30)
             col_right = addr_line.right + 300
 
