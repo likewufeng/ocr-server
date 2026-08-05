@@ -35,7 +35,13 @@ class IDBackParser:
 
             # 情况2：右侧
             if not data["authority"]:
-                rights = layout.right_of(authority_line, tolerance=40)
+                # 有些图片中“签发机关”标签框会和签发机关内容框轻微重叠，
+                # 不能只依赖 right_of 的“完全在右侧”条件。
+                rights = [
+                    item for item in layout.same_row(authority_line, tolerance=40)
+                    if item is not authority_line
+                    and item.center_x > authority_line.center_x
+                ]
                 authority_parts = []
 
                 for item in rights:
