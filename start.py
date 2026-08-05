@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -15,6 +17,11 @@ def _env_bool(name: str, default: bool) -> bool:
 def main() -> None:
     project_dir = Path(__file__).resolve().parent
     app_dir = project_dir / "app"
+
+    # 先加载项目根目录 .env，再读取端口和本地默认模型。
+    # load_dotenv 不覆盖命令行/进程环境变量，保持环境变量优先级更高。
+    load_dotenv(project_dir / ".env")
+
     port = os.getenv("PORT", "8000")
     reload_enabled = _env_bool("DEV_RELOAD", True)
 
