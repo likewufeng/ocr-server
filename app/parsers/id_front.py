@@ -16,7 +16,7 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 
 class IDFrontParser:
     _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名|财省)[:：]?")
-    _GENDER_LABEL_PATTERN = re.compile(r"性[别州]")
+    _GENDER_LABEL_PATTERN = re.compile(r"性[别州期]")
     _NATION_LABEL_PATTERN = re.compile(r"[民闲]族")
     _PERSON_NAME_PATTERN = re.compile(r"^[\u4e00-\u9fff·]{2,20}$")
     _NON_NAME_TEXTS = {
@@ -202,8 +202,13 @@ class IDFrontParser:
                 addr_parts.append(first_addr)
 
             # 平台模型常把“住址”和第一段地址拆成同行两个框，且地址框 top 可能略高于“住址”框。
+            # 这里的容差比通用同行判断更严格，避免第二行地址与标签轻微重叠时
+            # 被提前排到首行地址之前。
+            address_row_tolerance = max(10, int(addr_line.height * 0.75))
             same_row_addr_lines = [
-                line for line in layout.same_row(addr_line, tolerance=35)
+                line for line in layout.same_row(
+                    addr_line, tolerance=address_row_tolerance
+                )
                 if line is not addr_line and line.center_x > addr_line.center_x
             ]
             for line in same_row_addr_lines:
@@ -219,7 +224,10 @@ class IDFrontParser:
 
             # 地址列范围：和首行大致同列即可
             # 注意：这里不要用严格的 nearest_below，因为下一行可能和上一行轻微重叠
-            col_left = addr_line.left - 50
+            content_left = min(
+                [addr_line.right] + [line.left for line in same_row_addr_lines]
+            )
+            col_left = max(addr_line.left - 50, content_left - 30)
             col_right = addr_line.right + 300
 
             # 关键修复：
@@ -237,18 +245,24 @@ class IDFrontParser:
                     continue
                 if line.text in addr_parts:
                     continue
-                if bottom_bound is not None and line.top >= bottom_bound:
+                # 身份证号的数值框可能比“公民身份号码”标签略高，
+                # 因此按 bottom 判断，避免把号码框误拼进地址。
+                if bottom_bound is not None and line.bottom > bottom_bound:
                     continue
                 if line.top < min_top:
                     continue
 
                 # 与地址列有重叠即可
-                if line.left < col_right and line.right > col_left:
+                if (
+                    line.left < col_right
+                    and line.right > col_left
+                    and line.center_x >= content_left - 10
+                ):
                     candidates.append(line)
 
             candidates.sort(key=lambda x: (x.top, x.left))
 
-            stop_keywords = ["公民身份号码", "公民身份证号码", "身份证号码", "身份号码", "公民身份", "姓名", "性别", "民族", "出生", "住址"]
+            stop_keywords = ["公民身份号码", "公民身份证号码", "身份证号码", "身份号码", "公民身份", "姓名", "性别", "民族", "出生", "住址", "样证"]
             current_bottom = same_row_bottom
 
             for line in candidates:

@@ -478,6 +478,32 @@ def test_id_front_with_mobile_label_typos():
     print("ID Front Mobile Label Typos Test Passed!")
 
 
+def test_id_front_with_sample_watermark_and_overlapping_id_number():
+    print("\n--- Testing ID Front With Sample Watermark ---")
+    lines = [
+        OCRLine(text="姓名", left=49, top=61, right=106, bottom=86, score=0.99),
+        OCRLine(text="李久熙", left=116, top=54, right=197, bottom=86, score=0.99),
+        OCRLine(text="性期", left=49, top=105, right=105, bottom=130, score=0.87),
+        OCRLine(text="女", left=118, top=106, right=141, bottom=127, score=0.99),
+        OCRLine(text="民族汉", left=175, top=105, right=251, bottom=129, score=0.99),
+        OCRLine(text="出生", left=50, top=148, right=104, bottom=173, score=0.99),
+        OCRLine(text="1996年11月24日", left=116, top=151, right=306, bottom=174, score=0.99),
+        OCRLine(text="住址", left=51, top=196, right=102, bottom=218, score=0.96),
+        OCRLine(text="北京市海淀区双榆树东里", left=119, top=193, right=349, bottom=216, score=0.99),
+        OCRLine(text="99区2号楼302室", left=115, top=214, right=273, bottom=242, score=0.99),
+        OCRLine(text="样证", left=38, top=235, right=127, bottom=278, score=0.77),
+        OCRLine(text="公民身份号码", left=51, top=304, right=182, bottom=330, score=0.99),
+        OCRLine(text="110108199611240188", left=204, top=302, right=506, bottom=331, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["name"] == "李久熙"
+    assert result["gender"] == "女"
+    assert result["nation"] == "汉"
+    assert result["address"] == "北京市海淀区双榆树东里99区2号楼302室"
+    assert result["id_number"] == "110108199611240188"
+    print("ID Front Sample Watermark Test Passed!")
+
+
 def test_business_license_with_supplemented_address_crop():
     print("\n--- Testing Business License With Supplemented Address Crop ---")
     lines = [
@@ -554,6 +580,7 @@ if __name__ == "__main__":
     test_id_front_with_missing_gender_and_nation_text()
     test_id_front_with_supplemented_nation_crop()
     test_id_front_with_mobile_label_typos()
+    test_id_front_with_sample_watermark_and_overlapping_id_number()
     test_business_license_with_supplemented_address_crop()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
