@@ -527,6 +527,20 @@ def test_id_back_with_wrong_authority_prefix():
     assert result["authority"] == "渑池县公安局"
     print("ID Back Wrong Authority Prefix Test Passed!")
 
+
+def test_id_back_with_mixed_date_separators():
+    print("\n--- Testing ID Back With Mixed Date Separators ---")
+    lines = [
+        OCRLine(text="签发机关", left=137, top=254, right=220, bottom=278, score=0.99),
+        OCRLine(text="拉萨市公安局城关分局", left=235, top=255, right=434, bottom=276, score=0.95),
+        OCRLine(text="有效期限", left=138, top=303, right=222, bottom=325, score=0.99),
+        OCRLine(text="200410.27-2024.10.26", left=213, top=304, right=446, bottom=325, score=0.98),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_back")
+    assert result["authority"] == "拉萨市公安局城关分局"
+    assert result["valid_date"] == "2004.10.27-2024.10.26"
+    print("ID Back Mixed Date Separators Test Passed!")
+
 if __name__ == "__main__":
     test_document_type_hint()
     test_ocr_cache_round_trip()
@@ -543,6 +557,7 @@ if __name__ == "__main__":
     test_business_license_with_supplemented_address_crop()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
+    test_id_back_with_mixed_date_separators()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
     test_invoice_with_typos()

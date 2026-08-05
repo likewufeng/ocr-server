@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from app.utils.layout import Layout
 from app.utils.ocr_corrections import normalize_known_admin_text
@@ -173,18 +174,21 @@ class IDBackParser:
         m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", s)
         if m:
             y, mo, d = m.groups()
-            return f"{y}.{int(mo):02d}.{int(d):02d}"
+            return self._format_valid_date(y, mo, d)
 
-        # 纯数字 YYYYMMDD
-        m = re.fullmatch(r"(\d{4})(\d{2})(\d{2})", s)
+        # 支持纯数字、完整分隔和 OCR 漏掉其中一个分隔符的混合格式，
+        # 例如 200410.27 / 2004.10-27 / 20041027。
+        m = re.fullmatch(r"(\d{4})[.\-]?(\d{1,2})[.\-]?(\d{1,2})", s)
         if m:
             y, mo, d = m.groups()
-            return f"{y}.{mo}.{d}"
-
-        # 点 / 横线格式
-        m = re.fullmatch(r"(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})", s)
-        if m:
-            y, mo, d = m.groups()
-            return f"{y}.{int(mo):02d}.{int(d):02d}"
+            return self._format_valid_date(y, mo, d)
 
         return ""
+
+    @staticmethod
+    def _format_valid_date(year: str, month: str, day: str) -> str:
+        try:
+            normalized = date(int(year), int(month), int(day))
+        except ValueError:
+            return ""
+        return f"{normalized.year:04d}.{normalized.month:02d}.{normalized.day:02d}"
