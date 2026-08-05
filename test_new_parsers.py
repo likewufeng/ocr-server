@@ -567,6 +567,18 @@ def test_id_back_with_mixed_date_separators():
     assert result["valid_date"] == "2004.10.27-2024.10.26"
     print("ID Back Mixed Date Separators Test Passed!")
 
+
+def test_id_back_with_comma_date_separator():
+    print("\n--- Testing ID Back With Comma Date Separator ---")
+    lines = [
+        OCRLine(text="签发机关北京市公安局海淀分局", left=143, top=258, right=441, bottom=283, score=0.99),
+        OCRLine(text="有效期限2004.11,24-2009.11.23", left=141, top=304, right=453, bottom=331, score=0.95),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_back")
+    assert result["authority"] == "北京市公安局海淀分局"
+    assert result["valid_date"] == "2004.11.24-2009.11.23"
+    print("ID Back Comma Date Separator Test Passed!")
+
 if __name__ == "__main__":
     test_document_type_hint()
     test_ocr_cache_round_trip()
@@ -585,6 +597,7 @@ if __name__ == "__main__":
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_id_back_with_mixed_date_separators()
+    test_id_back_with_comma_date_separator()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
     test_invoice_with_typos()

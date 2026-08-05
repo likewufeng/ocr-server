@@ -122,7 +122,13 @@ class IDBackParser:
         t = t.replace(" ", "")
         t = t.replace("—", "-").replace("–", "-").replace("－", "-")
         t = t.replace("至", "-")
-        t = t.replace("．", ".").replace("。", ".").replace("·", ".")
+        t = (
+            t.replace("．", ".")
+            .replace("。", ".")
+            .replace("·", ".")
+            .replace(",", ".")
+            .replace("，", ".")
+        )
         t = t.replace("有效期限", "")
 
         # 1) 先匹配：YYYYMMDD / YYYY.MM.DD / YYYY-MM-DD 这几种
