@@ -91,6 +91,12 @@ OCR_TEXT_RECOGNITION_BATCH_SIZE = max(
     1, int(os.getenv("OCR_TEXT_RECOGNITION_BATCH_SIZE", "6"))
 )
 
+# 身份证正面的小号蓝色标签在模糊照片中置信度可能偏低；仅对该类型降低过滤门槛，
+# 由解析器的字段和坐标校验兜底。其它证件仍使用 OCR 默认门槛。
+OCR_ID_FRONT_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("OCR_ID_FRONT_MIN_SCORE", "0.5")))
+)
+
 
 # ---------- 文档方向与形变预处理 ----------
 # 控制方向模型是否在 pipeline 初始化时加载。

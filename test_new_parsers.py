@@ -413,6 +413,29 @@ def test_id_front_with_misrecognized_name_label():
     assert result["id_number"] == "411221199108152534"
     print("ID Front Misrecognized Name Label Test Passed!")
 
+
+def test_id_front_with_missing_gender_and_nation_text():
+    print("\n--- Testing ID Front With Missing Gender And Nation Text ---")
+    lines = [
+        OCRLine(text="吴烽", left=147, top=64, right=255, bottom=115, score=0.7478779554367065),
+        OCRLine(text="性别", left=48, top=140, right=145, bottom=180, score=0.7965892553329468),
+        OCRLine(text="出生", left=49, top=208, right=132, bottom=247, score=0.9737291332244873),
+        OCRLine(text="1991年8月15日", left=152, top=202, right=438, bottom=251, score=0.9763708114624023),
+        OCRLine(text="住址", left=49, top=282, right=130, bottom=317, score=0.9439676403999329),
+        OCRLine(text="河南省混池县洪阳镇德厚", left=150, top=280, right=510, bottom=321, score=0.9285207986831665),
+        OCRLine(text="村七组1号", left=151, top=324, right=321, bottom=369, score=0.9516127705574036),
+        OCRLine(text="公民身份号码", left=50, top=453, right=252, bottom=497, score=0.9825084209442139),
+        OCRLine(text="411221199108152534", left=289, top=450, right=761, bottom=496, score=0.9956158399581909),
+    ]
+    result = OCRParser().parse(Layout(lines))
+    assert result["type"] == "id_front"
+    assert result["name"] == "吴烽"
+    assert result["gender"] == "男"
+    assert result["nation"] == ""
+    assert result["address"] == "河南省渑池县洪阳镇德厚村七组1号"
+    assert result["id_number"] == "411221199108152534"
+    print("ID Front Missing Gender And Nation Text Test Passed!")
+
 def test_id_back_with_missing_authority_prefix():
     print("\n--- Testing ID Back with Missing Authority Prefix ---")
     lines = [
@@ -458,6 +481,7 @@ if __name__ == "__main__":
     test_id_front_with_split_birthday_and_admin_area_typo()
     test_id_front_birthday_fallback_from_id_number()
     test_id_front_with_misrecognized_name_label()
+    test_id_front_with_missing_gender_and_nation_text()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
     test_bank_card_with_typos()

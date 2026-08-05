@@ -23,6 +23,7 @@ from app.config import OCR_ENABLE_DOC_ORIENTATION_MODEL
 from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
+from app.config import OCR_ID_FRONT_MIN_SCORE
 from app.config import OCR_MODEL_PROFILE
 from app.config import OCR_PREPROCESSED_JPEG_QUALITY
 from app.config import OCR_SAVE_PREPROCESSED_IMAGE
@@ -155,6 +156,10 @@ class OCRService:
         auto_orientation: Optional[bool],
         min_score: float = 0.7,
     ) -> str:
+        effective_min_score = min_score
+        if document_type == "id_front":
+            effective_min_score = min(min_score, OCR_ID_FRONT_MIN_SCORE)
+
         settings = {
             "version": OCR_CACHE_VERSION,
             "profile": OCR_MODEL_PROFILE,
@@ -164,7 +169,7 @@ class OCRService:
             "unwarping": OCR_USE_DOC_UNWARPING,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
-            "min_score": min_score,
+            "min_score": effective_min_score,
         }
         serialized = json.dumps(settings, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
@@ -425,6 +430,9 @@ class OCRService:
         recognize_started_at = time.perf_counter()
         effective_orientation = self._effective_orientation(auto_orientation)
         detection_side_limit = self._detection_side_limit(document_type)
+        effective_min_score = min_score
+        if document_type == "id_front":
+            effective_min_score = min(min_score, OCR_ID_FRONT_MIN_SCORE)
         try:
             if self.pipeline_uses_fine_tuned_detector:
                 temp_path = self.preprocess_image(image_path, output_dir=output_dir)
@@ -449,10 +457,11 @@ class OCRService:
 
             request_logger.info(
                 "OCR inference options: document_type={}, auto_orientation={}, "
-                "det_side_limit={}",
+                "det_side_limit={}, min_score={}",
                 document_type or "auto",
                 effective_orientation,
                 detection_side_limit,
+                effective_min_score,
             )
             for result in self.pipeline.predict(ocr_input_path, **predict_options):
                 prediction_seconds = time.perf_counter() - prediction_started_at
@@ -471,7 +480,7 @@ class OCRService:
                 polys = []
 
                 for i, score in enumerate(result["rec_scores"]):
-                    if score >= min_score:
+                    if score >= effective_min_score:
                         texts.append(result["rec_texts"][i])
                         scores.append(float(score))
                         boxes.append(result["rec_boxes"][i].tolist())

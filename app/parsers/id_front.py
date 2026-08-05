@@ -17,6 +17,18 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 class IDFrontParser:
     _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名)[:：]?")
     _PERSON_NAME_PATTERN = re.compile(r"^[\u4e00-\u9fff·]{2,20}$")
+    _NON_NAME_TEXTS = {
+        "性别", "民族", "出生", "住址", "公民身份", "公民身份号码",
+    }
+    _NATION_NAMES = {
+        "汉", "蒙古", "回", "藏", "维吾尔", "苗", "彝", "壮", "布依",
+        "朝鲜", "满", "侗", "瑶", "白", "土家", "哈尼", "哈萨克", "傣",
+        "黎", "傈僳", "佤", "畲", "高山", "拉祜", "水", "东乡", "纳西",
+        "景颇", "柯尔克孜", "土", "达斡尔", "仫佬", "羌", "布朗", "撒拉",
+        "毛南", "仡佬", "锡伯", "阿昌", "普米", "塔吉克", "怒", "乌孜别克",
+        "俄罗斯", "鄂温克", "德昂", "保安", "裕固", "京", "塔塔尔", "独龙",
+        "鄂伦春", "赫哲", "门巴", "珞巴", "基诺",
+    }
 
     @classmethod
     def _find_name_label_line(cls, layout: Layout, gender_line=None):
@@ -40,7 +52,34 @@ class IDFrontParser:
         candidate = re.sub(r"\s+", "", text or "").strip(":：")
         for keyword in ("性别", "民族", "出生", "住址", "公民身份"):
             candidate = candidate.split(keyword, 1)[0]
+        if candidate in cls._NON_NAME_TEXTS:
+            return ""
         return candidate if cls._PERSON_NAME_PATTERN.fullmatch(candidate) else ""
+
+    @classmethod
+    def _find_name_without_label(cls, layout: Layout, gender_line) -> str:
+        if not gender_line:
+            return ""
+
+        candidates = []
+        for item in layout.all() or []:
+            if item is gender_line or item.bottom > gender_line.top:
+                continue
+            if gender_line.top - item.bottom > max(120, gender_line.height * 3):
+                continue
+            if item.left < gender_line.left:
+                continue
+
+            candidate = cls._clean_person_name(item.text)
+            if candidate:
+                candidates.append(
+                    (gender_line.top - item.bottom, abs(item.left - gender_line.right), candidate)
+                )
+
+        if not candidates:
+            return ""
+        candidates.sort(key=lambda value: (value[0], value[1]))
+        return candidates[0][2]
 
     @staticmethod
     def _find_id_number_label_line(layout: Layout):
@@ -90,6 +129,9 @@ class IDFrontParser:
                         "".join(i.text for i in right)
                     )
 
+        if not data["name"]:
+            data["name"] = self._find_name_without_label(layout, gender_line)
+
         # ---------------- 性别、民族 ----------------
 
         if gender_line:
@@ -103,6 +145,13 @@ class IDFrontParser:
             m = re.search(r"民族\s*([\u4e00-\u9fff]{1,8})", text)
             if m:
                 data["nation"] = m.group(1).strip()
+
+            if not data["nation"]:
+                for item in layout.same_row(gender_line, tolerance=30):
+                    candidate = re.sub(r"\s+", "", item.text or "")
+                    if candidate in self._NATION_NAMES:
+                        data["nation"] = candidate
+                        break
 
         # ---------------- 出生 ----------------
 
@@ -219,6 +268,12 @@ class IDFrontParser:
             m = re.search(r"\d{17}[0-9Xx]", full_text)
             if m:
                 data["id_number"] = m.group().upper()
+
+        # 身份证号码第 17 位为性别校验位：奇数男、偶数女。仅在 OCR 没识别出性别时兜底。
+        if not data["gender"] and len(data["id_number"]) == 18:
+            gender_digit = data["id_number"][16]
+            if gender_digit.isdigit():
+                data["gender"] = "男" if int(gender_digit) % 2 else "女"
 
         # 平台/移动模型可能把“出生”和日期拆框，甚至漏掉日期框。
         # 身份证号码中的出生日期是结构化字段，可作为可靠兜底。

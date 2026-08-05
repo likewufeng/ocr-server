@@ -15,6 +15,7 @@ def normalize_known_admin_text(text: str) -> str:
         "淹池县": "渑池县",
         "关池县": "渑池县",
         "绳池县": "渑池县",
+        "混池县": "渑池县",
     }
 
     for wrong, right in phrase_corrections.items():
