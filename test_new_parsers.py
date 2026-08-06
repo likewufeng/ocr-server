@@ -446,6 +446,22 @@ def test_id_front_birthday_fallback_from_id_number():
     print("ID Front Birthday Fallback Test Passed!")
 
 
+def test_id_front_with_noisy_birthday_month():
+    print("\n--- Testing ID Front With Noisy Birthday Month ---")
+    lines = [
+        OCRLine(text="姓名苏龙格德·胡尔查巴特尔", left=41, top=59, right=577, bottom=111, score=0.99),
+        OCRLine(text="性别男民族蒙古", left=34, top=118, right=428, bottom=169, score=0.91),
+        OCRLine(text="出生1973年105月27日", left=32, top=172, right=524, bottom=227, score=0.92),
+        OCRLine(text="住址", left=44, top=236, right=171, bottom=288, score=0.97),
+        OCRLine(text="内蒙古赤峰市巴林右旗沙布", left=185, top=299, right=520, bottom=333, score=0.99),
+        OCRLine(text="公民身份号码15222119731", left=161, top=393, right=616, bottom=435, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["birthday"] == "1973年10月27日"
+    assert result["id_number"] == ""
+    print("ID Front Noisy Birthday Month Test Passed!")
+
+
 def test_id_front_with_misrecognized_name_label():
     print("\n--- Testing ID Front With Misrecognized Name Label ---")
     lines = [
@@ -675,6 +691,7 @@ if __name__ == "__main__":
     test_id_front_with_admin_area_typo()
     test_id_front_with_split_birthday_and_admin_area_typo()
     test_id_front_birthday_fallback_from_id_number()
+    test_id_front_with_noisy_birthday_month()
     test_id_front_with_misrecognized_name_label()
     test_id_front_with_missing_gender_and_nation_text()
     test_id_front_with_supplemented_nation_crop()

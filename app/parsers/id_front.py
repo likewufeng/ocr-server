@@ -40,6 +40,32 @@ class IDFrontParser:
                 return nation
         return ""
 
+    @staticmethod
+    def _extract_birthday(text: str) -> str:
+        candidate = re.sub(r"\s+", "", text or "")
+        strict_match = re.search(r"\d{4}年\d{1,2}月\d{1,2}日", candidate)
+        if strict_match:
+            return strict_match.group()
+
+        # 藏文、水印等可能在月份或日期后面混入一个数字，例如“1973年105月27日”。
+        # 对异常字段只截取可组成有效日期的前两位，且必须通过日期有效性校验。
+        noisy_match = re.search(r"(\d{4})年(\d{3,4})月(\d{1,4})日", candidate)
+        if not noisy_match:
+            return ""
+
+        year, month_digits, day_digits = noisy_match.groups()
+        for month_length in range(min(2, len(month_digits)), 0, -1):
+            month = int(month_digits[:month_length])
+            for day_length in range(min(2, len(day_digits)), 0, -1):
+                day = int(day_digits[:day_length])
+                try:
+                    datetime(int(year), month, day)
+                except ValueError:
+                    continue
+                return f"{year}年{month}月{day}日"
+
+        return ""
+
     @classmethod
     def _find_name_label_line(cls, layout: Layout, gender_line=None):
         line = layout.find("姓名")
@@ -199,13 +225,7 @@ class IDFrontParser:
             birth_row_text = "".join(
                 line.text for line in layout.same_row(birth_line, tolerance=35)
             )
-            m = re.search(
-                r"\d{4}年\d{1,2}月\d{1,2}日",
-                birth_row_text
-            )
-
-            if m:
-                data["birthday"] = m.group()
+            data["birthday"] = self._extract_birthday(birth_row_text)
 
         # ---------------- 地址 ----------------
 
