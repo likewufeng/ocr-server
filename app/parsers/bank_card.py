@@ -25,6 +25,11 @@ class BankCardParser:
         reverse=True,
     )
 
+    BANK_NAME_ALIASES = {
+        "BANK OF CHINA": "中国银行",
+        "BOC": "中国银行",
+    }
+
     # 只放入高置信度的常见号段。号段库不是完整银行卡数据库，后续可按业务样本继续扩展。
     # 候选中已经识别出银行名称时，优先相信 OCR 文本，不用号段覆盖它。
     BIN_RULES = {
@@ -32,6 +37,7 @@ class BankCardParser:
         "622700": ("中国建设银行", "借记卡"),
         "622848": ("中国农业银行", "借记卡"),
         "621660": ("中国银行", "借记卡"),
+        "621669": ("中国银行", "借记卡"),
         "622202": ("中国工商银行", "借记卡"),
         "622588": ("招商银行", "借记卡"),
         "622188": ("中国邮政储蓄银行", "借记卡"),
@@ -167,6 +173,10 @@ class BankCardParser:
         if not bank_name:
             for line in all_lines:
                 text = (line.text or "").strip()
+                normalized_text = re.sub(r"\s+", " ", text.upper())
+                for alias, canonical_name in self.BANK_NAME_ALIASES.items():
+                    if alias in normalized_text:
+                        return canonical_name
                 if "银行" not in text or any(
                     keyword in text for keyword in ("卡号", "账号", "电话", "热线", "客服", "号码")
                 ):

@@ -144,6 +144,28 @@ def test_bank_card_uses_bin_when_bank_text_is_missing():
     print("Bank Card BIN Fallback Test Passed!")
 
 
+def test_bank_card_uses_china_bank_bin():
+    print("\n--- Testing Bank Card China Bank BIN ---")
+    lines = [
+        OCRLine(text="6216697600000000000", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "中国银行"
+    assert result["card_type"] == "借记卡"
+    print("Bank Card China Bank BIN Test Passed!")
+
+
+def test_bank_card_uses_english_bank_name_alias():
+    print("\n--- Testing Bank Card English Bank Name ---")
+    lines = [
+        OCRLine(text="BANK OF CHINA", left=50, top=10, right=250, bottom=35, score=0.99),
+        OCRLine(text="6216697600000000000", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "中国银行"
+    print("Bank Card English Bank Name Test Passed!")
+
+
 def test_bank_card_unknown_type_is_not_guessed_by_length():
     print("\n--- Testing Bank Card Unknown Type ---")
     lines = [
@@ -772,6 +794,8 @@ if __name__ == "__main__":
     test_bank_card_with_split_bank_name()
     test_bank_card_prefers_luhn_valid_candidate()
     test_bank_card_uses_bin_when_bank_text_is_missing()
+    test_bank_card_uses_china_bank_bin()
+    test_bank_card_uses_english_bank_name_alias()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()
