@@ -7,6 +7,7 @@ x-ocr-service: &ocr-service
     - ./data/uploads:/app/data/uploads
     - ./data/outputs:/app/data/outputs
     - ./data/cache:/app/data/cache
+    - ./data/bank_card:/app/data/bank_card:ro
     - ./models:/app/models
     - ./models:/root/.paddlex
   environment: &ocr-environment
@@ -25,6 +26,7 @@ x-ocr-service: &ocr-service
     OCR_USE_DOC_ORIENTATION: ${OCR_USE_DOC_ORIENTATION:-true}
     OCR_SAVE_PREPROCESSED_IMAGE: ${OCR_SAVE_PREPROCESSED_IMAGE:-true}
     OCR_CACHE_ENABLED: ${OCR_CACHE_ENABLED:-true}
+    BANK_CARD_CATALOG_FILE: ${BANK_CARD_CATALOG_FILE:-app/resources/bank_card/catalog.json}
     METRICS_ENABLED: ${METRICS_ENABLED:-true}
     OMP_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
     MKL_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
@@ -47,6 +49,7 @@ services:
       - ./data/uploads:/app/data/uploads
       - ./data/outputs:/app/data/outputs
       - ./data/cache:/app/data/cache
+      - ./data/bank_card:/app/data/bank_card:ro
       - ./models:/app/models
       - ./models:/root/.paddlex
       - ./data/logs/ocr-1:/app/data/logs/ocr-1
@@ -64,6 +67,7 @@ services:
       - ./data/uploads:/app/data/uploads
       - ./data/outputs:/app/data/outputs
       - ./data/cache:/app/data/cache
+      - ./data/bank_card:/app/data/bank_card:ro
       - ./models:/app/models
       - ./models:/root/.paddlex
       - ./data/logs/ocr-2:/app/data/logs/ocr-2

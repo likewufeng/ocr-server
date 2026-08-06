@@ -6,6 +6,7 @@ x-experiment-service: &experiment-service
     - ./data/openvino-experiment/uploads:/app/data/uploads
     - ./data/openvino-experiment/outputs:/app/data/outputs
     - ./data/openvino-experiment/cache:/app/data/cache
+    - ./data/bank_card:/app/data/bank_card:ro
     - ./models:/app/models:ro
   environment: &experiment-environment
     OCR_MODEL_VERSION: ${OCR_MODEL_VERSION:-v6}
@@ -21,6 +22,7 @@ x-experiment-service: &experiment-service
     OCR_USE_DOC_ORIENTATION: ${OCR_USE_DOC_ORIENTATION:-true}
     OCR_SAVE_PREPROCESSED_IMAGE: "false"
     OCR_CACHE_ENABLED: "false"
+    BANK_CARD_CATALOG_FILE: ${BANK_CARD_CATALOG_FILE:-app/resources/bank_card/catalog.json}
     METRICS_ENABLED: "true"
     OMP_NUM_THREADS: ${OCR_CPU_THREADS:-8}
     MKL_NUM_THREADS: ${OCR_CPU_THREADS:-8}
@@ -43,6 +45,7 @@ services:
       - ./data/openvino-experiment/uploads:/app/data/uploads
       - ./data/openvino-experiment/outputs:/app/data/outputs
       - ./data/openvino-experiment/cache:/app/data/cache
+      - ./data/bank_card:/app/data/bank_card:ro
       - ./models:/app/models:ro
       - paddle-experiment-models:/root/.paddlex
       - ./data/openvino-experiment/logs/paddle:/app/data/logs/paddle
@@ -65,6 +68,7 @@ services:
       - ./data/openvino-experiment/uploads:/app/data/uploads
       - ./data/openvino-experiment/outputs:/app/data/outputs
       - ./data/openvino-experiment/cache:/app/data/cache
+      - ./data/bank_card:/app/data/bank_card:ro
       - ./models:/app/models:ro
       - openvino-experiment-models:/root/.paddlex
       - ./data/openvino-experiment/logs/openvino:/app/data/logs/openvino

@@ -42,6 +42,10 @@ OUTPUT_DIR = BASE_DIR / os.getenv("OUTPUT_DIR", "data/outputs")
 CACHE_DIR = BASE_DIR / os.getenv("CACHE_DIR", "data/cache")
 MODEL_DIR = BASE_DIR / os.getenv("MODEL_DIR", "models")
 LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
+# 银行名称别名、卡种文案和 BIN/IIN 数据文件。生产环境可挂载更新该文件，无需修改解析代码。
+BANK_CARD_CATALOG_FILE = BASE_DIR / os.getenv(
+    "BANK_CARD_CATALOG_FILE", "app/resources/bank_card/catalog.json"
+)
 
 
 # ---------- 文件保留与清理周期 ----------

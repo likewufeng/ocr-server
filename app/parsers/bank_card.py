@@ -2,63 +2,18 @@
 """银行卡 OCR 结果解析。"""
 
 import re
-from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-from app.utils.layout import Layout, OCRLine
-
-
-class CardType(str, Enum):
-    """银行卡种类，保持 API 返回值为现有中文文本。"""
-
-    DEBIT = "借记卡"
-    CREDIT = "信用卡"
-    UNKNOWN = ""
+from app.config import BANK_CARD_CATALOG_FILE
+from app.parsers.bank_card_catalog import BankCardCatalog
+from app.schemas.bank_card import CardType, MatchSource
+from app.utils.layout import Layout
 
 
 class BankCardParser:
     """兼容不同银行卡版面的结构化解析器。"""
 
-    KNOWN_BANK_NAMES = sorted(
-        [
-            "中国工商银行", "中国农业银行", "中国银行", "中国建设银行", "交通银行",
-            "招商银行", "中信银行", "中国光大银行", "华夏银行", "中国民生银行",
-            "广发银行", "平安银行", "兴业银行", "上海浦东发展银行", "浦发银行",
-            "中国邮政储蓄银行", "邮政储蓄银行", "北京银行", "上海银行", "宁波银行",
-            "南京银行", "杭州银行", "江苏银行", "浙商银行", "渤海银行",
-            "天津银行", "徽商银行", "上海农商银行", "北京农商银行", "重庆农商银行",
-            "农村商业银行", "农村信用社", "厦门国际银行", "汇丰银行", "花旗银行",
-            "恒生银行",
-        ],
-        key=len,
-        reverse=True,
-    )
-
-    BANK_NAME_ALIASES = {
-        "BANK OF CHINA": "中国银行",
-        "BOC": "中国银行",
-    }
-
-    # 只放入高置信度的常见号段。号段库不是完整银行卡数据库，后续可按业务样本继续扩展。
-    # 候选中已经识别出银行名称时，优先相信 OCR 文本，不用号段覆盖它。
-    BIN_RULES = {
-        "436742": ("中国建设银行", CardType.CREDIT),
-        "622700": ("中国建设银行", CardType.DEBIT),
-        "622848": ("中国农业银行", CardType.DEBIT),
-        "621660": ("中国银行", CardType.DEBIT),
-        "621669": ("中国银行", CardType.DEBIT),
-        "622260": ("交通银行", CardType.DEBIT),
-        "622202": ("中国工商银行", CardType.DEBIT),
-        "622588": ("招商银行", CardType.DEBIT),
-        "622188": ("中国邮政储蓄银行", CardType.DEBIT),
-        "622622": ("中国民生银行", CardType.DEBIT),
-        "622155": ("平安银行", CardType.DEBIT),
-    }
-
-    CARD_TYPE_KEYWORDS = {
-        CardType.DEBIT: ("借记卡", "储蓄卡", "一卡通", "太平洋卡", "debit", "savings", "pacific card"),
-        CardType.CREDIT: ("信用卡", "贷记卡", "credit"),
-    }
+    catalog = BankCardCatalog.load(BANK_CARD_CATALOG_FILE)
     EXPIRY_KEYWORDS = (
         "valid thru", "validthrough", "valid till", "validtill",
         "good thru", "goodthrough", "good till", "goodtill",
@@ -166,64 +121,53 @@ class BankCardParser:
         )
         return candidates[0]
 
-    def _extract_bank_name(self, layout: Layout, card_number: str) -> str:
+    def _extract_bank_name(
+        self, layout: Layout, card_number: str
+    ) -> Tuple[str, MatchSource, float]:
         all_lines = layout.all() or []
-        bank_name = ""
 
         for line in all_lines:
-            row_text = "".join(
-                (item.text or "").strip()
-                for item in layout.same_row(line, tolerance=max(15, min(35, line.height)))
-            )
-            for name in self.KNOWN_BANK_NAMES:
-                if name in row_text:
-                    bank_name = name
-                    break
+            row = layout.same_row(line, tolerance=max(15, min(35, line.height)))
+            row_text = "".join((item.text or "").strip() for item in row)
+            bank_name = self.catalog.find_bank_name(row_text)
             if bank_name:
-                break
+                confidence = sum(item.score for item in row) / len(row)
+                return bank_name, MatchSource.OCR_ALIAS, confidence
 
-        if not bank_name:
-            for line in all_lines:
-                text = (line.text or "").strip()
-                normalized_text = re.sub(r"\s+", " ", text.upper())
-                for alias, canonical_name in self.BANK_NAME_ALIASES.items():
-                    if alias in normalized_text:
-                        return canonical_name
-                if "银行" not in text or any(
-                    keyword in text for keyword in ("卡号", "账号", "电话", "热线", "客服", "号码")
-                ):
-                    continue
-                match = re.search(r"([A-Za-z\u4e00-\u9fff]*?银行)", text)
-                if match:
-                    bank_name = match.group(1).strip()
-                    break
-
-        if bank_name:
-            match = re.search(r"[\u4e00-\u9fff]+银行", bank_name)
-            if match:
-                return match.group()
-
-        for prefix in sorted(self.BIN_RULES, key=len, reverse=True):
-            if card_number.startswith(prefix):
-                return self.BIN_RULES[prefix][0]
-        return ""
-
-    def _extract_card_type(self, layout: Layout, card_number: str) -> CardType:
-        text = "".join(layout.texts() or []).lower()
-        compact_text = re.sub(r"\s+", "", text)
-        for card_type, keywords in self.CARD_TYPE_KEYWORDS.items():
-            if any(
-                keyword.lower() in text or keyword.lower().replace(" ", "") in compact_text
-                for keyword in keywords
+        for line in all_lines:
+            text = (line.text or "").strip()
+            if "银行" not in text or any(
+                keyword in text for keyword in ("卡号", "账号", "电话", "热线", "客服", "号码")
             ):
-                return card_type
+                continue
+            match = re.search(r"([A-Za-z\u4e00-\u9fff]*?银行)", text)
+            if match:
+                return match.group(), MatchSource.OCR_GENERIC, line.score * 0.8
 
-        for prefix in sorted(self.BIN_RULES, key=len, reverse=True):
-            if card_number.startswith(prefix):
-                return self.BIN_RULES[prefix][1]
+        bin_rule = self.catalog.find_bin_rule(card_number)
+        if bin_rule:
+            return bin_rule.bank_name, MatchSource.BIN, 0.98
+        return "", MatchSource.UNKNOWN, 0.0
+
+    def _extract_card_type(
+        self, layout: Layout, card_number: str
+    ) -> Tuple[CardType, MatchSource, float]:
+        all_lines = layout.all() or []
+        for line in all_lines:
+            row = layout.same_row(line, tolerance=max(15, min(35, line.height)))
+            card_type = self.catalog.find_card_type(
+                "".join((item.text or "").strip() for item in row)
+            )
+            if card_type != CardType.UNKNOWN:
+                confidence = sum(item.score for item in row) / len(row)
+                return card_type, MatchSource.CARD_FACE, confidence
+
+        bin_rule = self.catalog.find_bin_rule(card_number)
+        if bin_rule:
+            return bin_rule.card_type, MatchSource.BIN, 0.98
 
         # 不能仅凭 16/19 位长度可靠判断借记卡或信用卡，未知时保留为空。
-        return CardType.UNKNOWN
+        return CardType.UNKNOWN, MatchSource.UNKNOWN, 0.0
 
     @staticmethod
     def _clean_valid_text(text: str) -> str:
@@ -285,8 +229,12 @@ class BankCardParser:
         data = {
             "type": "bank_card",
             "bank_name": "",
+            "bank_name_source": MatchSource.UNKNOWN.value,
+            "bank_name_confidence": 0.0,
             "card_number": "",
             "card_type": CardType.UNKNOWN.value,
+            "card_type_source": MatchSource.UNKNOWN.value,
+            "card_type_confidence": 0.0,
             "valid_date": "",
         }
 
@@ -296,7 +244,17 @@ class BankCardParser:
             id(item) for item in (candidate["items"] if candidate else [])
         }
         data["card_number"] = card_number
-        data["bank_name"] = self._extract_bank_name(layout, card_number)
-        data["card_type"] = self._extract_card_type(layout, card_number).value
+        bank_name, bank_name_source, bank_name_confidence = self._extract_bank_name(
+            layout, card_number
+        )
+        card_type, card_type_source, card_type_confidence = self._extract_card_type(
+            layout, card_number
+        )
+        data["bank_name"] = bank_name
+        data["bank_name_source"] = bank_name_source.value
+        data["bank_name_confidence"] = round(bank_name_confidence, 4)
+        data["card_type"] = card_type.value
+        data["card_type_source"] = card_type_source.value
+        data["card_type_confidence"] = round(card_type_confidence, 4)
         data["valid_date"] = self._extract_valid_date(layout, card_line_ids)
         return data
