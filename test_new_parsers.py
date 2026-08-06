@@ -36,6 +36,15 @@ def test_document_type_hint():
     print("Document Type Hint Test Passed!")
 
 
+def test_document_type_detects_bank_card_from_luhn_number():
+    print("\n--- Testing Bank Card Detection From Luhn Number ---")
+    lines = [
+        OCRLine(text="4532015112830366", left=50, top=80, right=350, bottom=110, score=0.99),
+    ]
+    assert OCRParser().parse(Layout(lines))["type"] == "bank_card"
+    print("Bank Card Luhn Detection Test Passed!")
+
+
 def test_ocr_cache_round_trip():
     print("\n--- Testing OCR Cache Round Trip ---")
     with TemporaryDirectory() as temp_dir:
@@ -109,6 +118,40 @@ def test_bank_card_with_split_bank_name():
     assert result["card_number"] == "6222021001123455781"
     assert result["valid_date"] == "12/29"
     print("Bank Card Split Bank Test Passed!")
+
+
+def test_bank_card_prefers_luhn_valid_candidate():
+    print("\n--- Testing Bank Card Luhn Candidate Selection ---")
+    lines = [
+        OCRLine(text="4532015112830367", left=50, top=100, right=350, bottom=130, score=0.99),
+        OCRLine(text="4532015112830366", left=50, top=150, right=350, bottom=180, score=0.80),
+        OCRLine(text="EXP DATE 12/29", left=50, top=200, right=220, bottom=225, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["card_number"] == "4532015112830366"
+    assert result["valid_date"] == "12/29"
+    print("Bank Card Luhn Candidate Selection Test Passed!")
+
+
+def test_bank_card_uses_bin_when_bank_text_is_missing():
+    print("\n--- Testing Bank Card BIN Fallback ---")
+    lines = [
+        OCRLine(text="6228480402564890018", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "中国农业银行"
+    assert result["card_type"] == "借记卡"
+    print("Bank Card BIN Fallback Test Passed!")
+
+
+def test_bank_card_unknown_type_is_not_guessed_by_length():
+    print("\n--- Testing Bank Card Unknown Type ---")
+    lines = [
+        OCRLine(text="4532015112830366", left=50, top=100, right=350, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["card_type"] == ""
+    print("Bank Card Unknown Type Test Passed!")
 
 def test_invoice_with_typos():
     print("\n--- Testing VAT Invoice with OCR Typos ---")
@@ -702,6 +745,7 @@ def test_id_back_with_truncated_balinyouqi_authority():
 
 if __name__ == "__main__":
     test_document_type_hint()
+    test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()
     test_id_front_with_split_id_label()
@@ -726,6 +770,9 @@ if __name__ == "__main__":
     test_id_back_with_truncated_balinyouqi_authority()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
+    test_bank_card_prefers_luhn_valid_candidate()
+    test_bank_card_uses_bin_when_bank_text_is_missing()
+    test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()
     test_business_license_with_common_ocr_variants()

@@ -13,6 +13,20 @@ from app.utils.layout import Layout
 
 class DocumentDetector:
     @staticmethod
+    def _luhn_valid(number: str) -> bool:
+        if not 15 <= len(number) <= 19 or not number.isdigit():
+            return False
+        checksum = 0
+        for index, char in enumerate(reversed(number)):
+            digit = int(char)
+            if index % 2 == 1:
+                digit *= 2
+                if digit > 9:
+                    digit -= 9
+            checksum += digit
+        return checksum % 10 == 0
+
+    @staticmethod
     def _has_id_number_label(text: str) -> bool:
         if any(label in text for label in ("公民身份号码", "公民身份证号码", "身份号码", "身份证号码")):
             return True
@@ -67,10 +81,22 @@ class DocumentDetector:
             clean_text_for_card = clean_text_for_card.replace(wrong, right)
             
         has_card_num = bool(re.search(r"\d{15,19}", clean_text_for_card))
+        has_luhn_card_num = any(
+            self._luhn_valid(match.group())
+            for match in re.finditer(r"\d{15,19}", clean_text_for_card)
+        )
         
         if has_bank_kw and has_card_num:
             return "bank_card"
         if has_bank_kw and any(kw in all_text_no_space for kw in ["借记卡", "储蓄卡", "信用卡", "贷记卡"]):
+            return "bank_card"
+
+        # 银行名称、卡种文案都可能因 logo、反光或版面原因漏检；
+        # 排除其它证件特征后，Luhn 合法卡号足以支持银行卡自动分流。
+        if has_luhn_card_num and not any(
+            keyword in all_text_no_space
+            for keyword in ("营业执照", "统一社会信用代码", "发票", "公民身份", "身份证")
+        ):
             return "bank_card"
             
         return "unknown"
