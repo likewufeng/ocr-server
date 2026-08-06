@@ -275,6 +275,18 @@ class BusinessParser:
             ]
             return any(suffix in t for suffix in company_suffixes)
 
+        def looks_like_company_type(text: str) -> bool:
+            """仅用于补偿“类型”标签漏字后的候选值校验。"""
+            t = (text or "").strip()
+            if len(t) < 4:
+                return False
+            type_keywords = (
+                "有限责任公司", "股份有限公司", "个人独资企业",
+                "合伙企业", "农民专业合作社", "个体工商户",
+                "非公司企业法人", "全民所有制", "分公司",
+            )
+            return any(keyword in t for keyword in type_keywords)
+
         def clean_addr_text(text: str) -> str:
             """
             清理地址首部OCR噪声：
@@ -631,17 +643,32 @@ class BusinessParser:
                         if vals:
                             return "".join(vals)
 
-            type_label = find_exact("类")
-            if type_label:
+            # “类型”可能拆成“类”+“型”+值，也可能只识别出“型”+值。
+            for label_text in ("类", "型"):
+                type_label = find_exact(label_text)
+                if not type_label:
+                    continue
                 row_parts = collect_row_sequence(
                     same_row_right_blocks(type_label, tol=row_tol(type_label, 1.0)),
-                    skip_exact={"型"},
-                    strip_prefixes=("型",),
+                    skip_exact={"型"} if label_text == "类" else set(),
+                    strip_prefixes=("型",) if label_text == "类" else (),
                 )
                 if row_parts:
                     vals = [text for _, text in row_parts if not is_label_like(text)]
-                    if vals:
-                        return "".join(vals)
+                    candidate = "".join(vals)
+                    if looks_like_company_type(candidate):
+                        return candidate
+
+            # OCR 偶尔会把“类型”中的“类”漏掉，例如：
+            # “型有限责任公司（自然人独资）”。仅接受合法企业类型，避免误取正文。
+            for line in all_lines:
+                text = (line.text or "").strip()
+                match = re.match(r"^[型类](?:\s*型)?[\s:：]*(.+)$", text)
+                if not match:
+                    continue
+                candidate = match.group(1).strip()
+                if looks_like_company_type(candidate):
+                    return candidate
 
             return ""
 

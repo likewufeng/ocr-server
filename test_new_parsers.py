@@ -245,6 +245,46 @@ def test_business_license_with_missing_name_prefix():
     assert result["credit_code"] == "91410100MACER7B67P"
     print("Business License Missing Name Prefix Test Passed!")
 
+def test_business_license_with_missing_type_label_character():
+    print("\n--- Testing Business License with Missing Type Label Character ---")
+    lines = [
+        OCRLine(text="营业执照", left=463, top=199, right=802, bottom=272, score=0.99),
+        OCRLine(text="统一社会信用代码", left=132, top=227, right=322, bottom=245, score=0.99),
+        OCRLine(text="91410100MACER7B67P", left=141, top=249, right=308, bottom=266, score=0.99),
+        OCRLine(text="名", left=133, top=371, right=156, bottom=396, score=0.99),
+        OCRLine(text="称河南省吉米特信息技术有限公司", left=211, top=371, right=506, bottom=393, score=0.99),
+        OCRLine(text="注册资本伍佰万圆整", left=696, top=366, right=916, bottom=392, score=0.99),
+        OCRLine(text="型有限责任公司（自然人独资）", left=200, top=415, right=477, bottom=438, score=0.99),
+        OCRLine(text="成立日期", left=699, top=411, right=807, bottom=435, score=0.99),
+        OCRLine(text="2023年04月21日", left=821, top=415, right=948, bottom=434, score=0.99),
+        OCRLine(text="法定代表人王志勇", left=132, top=460, right=310, bottom=482, score=0.99),
+        OCRLine(text="住", left=696, top=454, right=729, bottom=482, score=0.99),
+        OCRLine(text="所", left=784, top=457, right=810, bottom=479, score=0.99),
+        OCRLine(text="河南省郑州市郑东新区平安大道与", left=823, top=460, right=1090, bottom=478, score=0.99),
+        OCRLine(text="明理路交叉口西南角博雅广场4号", left=825, top=487, right=1082, bottom=505, score=0.99),
+        OCRLine(text="楼2楼201", left=823, top=512, right=898, bottom=534, score=0.99),
+        OCRLine(text="经营范围", left=132, top=504, right=240, bottom=527, score=0.99),
+        OCRLine(text="一般项目：信息系统集成服务", left=253, top=499, right=655, bottom=514, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["type_name"] == "有限责任公司（自然人独资）"
+    print("Business License Missing Type Label Character Test Passed!")
+
+def test_business_license_with_split_missing_type_label_character():
+    print("\n--- Testing Business License with Split Missing Type Label Character ---")
+    lines = [
+        OCRLine(text="营业执照", left=1645, top=926, right=2771, bottom=1182, score=0.99),
+        OCRLine(text="名", left=540, top=1452, right=935, bottom=1556, score=0.99),
+        OCRLine(text="称河南省信息化集团有限公司", left=965, top=1465, right=1692, bottom=1543, score=0.99),
+        OCRLine(text="型", left=540, top=1587, right=918, bottom=1695, score=0.99),
+        OCRLine(text="其他有限责任公司", left=969, top=1613, right=1458, bottom=1686, score=0.99),
+        OCRLine(text="法定代表人", left=543, top=1734, right=915, bottom=1835, score=0.99),
+        OCRLine(text="王秀清", left=965, top=1752, right=1164, bottom=1830, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["type_name"] == "其他有限责任公司"
+    print("Business License Split Missing Type Label Character Test Passed!")
+
 def test_business_license_scope_order_with_tall_label():
     print("\n--- Testing Business License Scope Order with Tall Label ---")
     lines = [
@@ -636,4 +676,6 @@ if __name__ == "__main__":
     test_invoice_with_split_name_labels()
     test_business_license_with_common_ocr_variants()
     test_business_license_with_missing_name_prefix()
+    test_business_license_with_missing_type_label_character()
+    test_business_license_with_split_missing_type_label_character()
     test_business_license_scope_order_with_tall_label()
