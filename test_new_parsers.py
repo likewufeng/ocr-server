@@ -622,7 +622,8 @@ def test_id_back_with_missing_authority_prefix():
     print(result)
     assert result["type"] == "id_back"
     assert result["authority"] == "渑池县公安局"
-    assert result["valid_date"] == "2019.06.24-2039.06.24"
+    assert result["issue_date"] == "2019.06.24"
+    assert result["expiry_date"] == "2039.06.24"
     print("ID Back Authority Prefix Test Passed!")
 
 def test_id_back_with_wrong_authority_prefix():
@@ -653,7 +654,8 @@ def test_id_back_with_mixed_date_separators():
     ]
     result = OCRParser().parse(Layout(lines), document_type="id_back")
     assert result["authority"] == "拉萨市公安局城关分局"
-    assert result["valid_date"] == "2004.10.27-2024.10.26"
+    assert result["issue_date"] == "2004.10.27"
+    assert result["expiry_date"] == "2024.10.26"
     print("ID Back Mixed Date Separators Test Passed!")
 
 
@@ -665,7 +667,8 @@ def test_id_back_with_comma_date_separator():
     ]
     result = OCRParser().parse(Layout(lines), document_type="id_back")
     assert result["authority"] == "北京市公安局海淀分局"
-    assert result["valid_date"] == "2004.11.24-2009.11.23"
+    assert result["issue_date"] == "2004.11.24"
+    assert result["expiry_date"] == "2009.11.23"
     print("ID Back Comma Date Separator Test Passed!")
 
 
@@ -678,7 +681,8 @@ def test_id_back_with_overlapping_authority_box():
     ]
     result = OCRParser().parse(Layout(lines), document_type="id_back")
     assert result["authority"] == "巴林右旗公安局"
-    assert result["valid_date"] == "2004.10.27-2024.10.26"
+    assert result["issue_date"] == "2004.10.27"
+    assert result["expiry_date"] == "2024.10.26"
     print("ID Back Overlapping Authority Box Test Passed!")
 
 
@@ -692,7 +696,8 @@ def test_id_back_with_truncated_balinyouqi_authority():
     ]
     result = OCRParser().parse(Layout(lines), document_type="id_back")
     assert result["authority"] == "巴林右旗公安局"
-    assert result["valid_date"] == "2004.10.27-2024.10.26"
+    assert result["issue_date"] == "2004.10.27"
+    assert result["expiry_date"] == "2024.10.26"
     print("ID Back Truncated Balinyouqi Authority Test Passed!")
 
 if __name__ == "__main__":

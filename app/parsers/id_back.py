@@ -17,7 +17,8 @@ class IDBackParser:
         data = {
             "type": "id_back",
             "authority": "",
-            "valid_date": ""
+            "issue_date": "",
+            "expiry_date": "",
         }
 
         all_lines = layout.all() or []
@@ -75,6 +76,8 @@ class IDBackParser:
 
         # ---------- 有效期限 ----------
 
+        valid_period = ""
+
         valid_line = layout.find("有效期限")
 
         if valid_line:
@@ -82,10 +85,10 @@ class IDBackParser:
             # 情况1：同块
             raw = self._extract_valid_date_from_text(valid_line.text)
             if raw:
-                data["valid_date"] = raw
+                valid_period = raw
 
             # 情况2：右侧
-            if not data["valid_date"]:
+            if not valid_period:
                 rights = layout.right_of(valid_line, tolerance=40)
                 text = "".join(
                     (i.text or "").strip()
@@ -94,25 +97,35 @@ class IDBackParser:
                 )
                 raw = self._extract_valid_date_from_text(text)
                 if raw:
-                    data["valid_date"] = raw
+                    valid_period = raw
 
             # 情况3：下方
-            if not data["valid_date"]:
+            if not valid_period:
                 for item in layout.below(valid_line):
                     t = (item.text or "").strip()
                     if not t:
                         continue
                     raw = self._extract_valid_date_from_text(t)
                     if raw:
-                        data["valid_date"] = raw
+                        valid_period = raw
                         break
 
         # 情况4：全文回退
-        if not data["valid_date"]:
+        if not valid_period:
             full_text = "".join(layout.texts() or []).replace(" ", "").replace("\n", "")
-            data["valid_date"] = self._extract_valid_date_from_text(full_text)
+            valid_period = self._extract_valid_date_from_text(full_text)
+
+        data["issue_date"], data["expiry_date"] = self._split_valid_period(
+            valid_period
+        )
 
         return data
+
+    @staticmethod
+    def _split_valid_period(period: str) -> tuple[str, str]:
+        if not period or "-" not in period:
+            return "", ""
+        return tuple(period.split("-", 1))
 
     def _extract_valid_date_from_text(self, text: str) -> str:
         """
