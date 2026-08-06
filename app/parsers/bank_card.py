@@ -4,7 +4,7 @@
 import re
 from typing import Dict, List, Optional, Tuple
 
-from app.config import BANK_CARD_CATALOG_FILE
+from app.config import BANK_CARD_CATALOG_FILE, BANK_CARD_IIN_FILE
 from app.parsers.bank_card_catalog import BankCardCatalog
 from app.schemas.bank_card import CardType, MatchSource
 from app.utils.layout import Layout
@@ -13,7 +13,7 @@ from app.utils.layout import Layout
 class BankCardParser:
     """兼容不同银行卡版面的结构化解析器。"""
 
-    catalog = BankCardCatalog.load(BANK_CARD_CATALOG_FILE)
+    catalog = BankCardCatalog.load(BANK_CARD_CATALOG_FILE, BANK_CARD_IIN_FILE)
     EXPIRY_KEYWORDS = (
         "valid thru", "validthrough", "valid till", "validtill",
         "good thru", "goodthrough", "good till", "goodtill",

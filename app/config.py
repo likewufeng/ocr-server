@@ -46,6 +46,9 @@ LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
 BANK_CARD_CATALOG_FILE = BASE_DIR / os.getenv(
     "BANK_CARD_CATALOG_FILE", "app/resources/bank_card/catalog.json"
 )
+BANK_CARD_IIN_FILE = BASE_DIR / os.getenv(
+    "BANK_CARD_IIN_FILE", "app/resources/bank_card/iin_catalog.json"
+)
 
 
 # ---------- 文件保留与清理周期 ----------

@@ -23,6 +23,7 @@ x-experiment-service: &experiment-service
     OCR_SAVE_PREPROCESSED_IMAGE: "false"
     OCR_CACHE_ENABLED: "false"
     BANK_CARD_CATALOG_FILE: ${BANK_CARD_CATALOG_FILE:-app/resources/bank_card/catalog.json}
+    BANK_CARD_IIN_FILE: ${BANK_CARD_IIN_FILE:-app/resources/bank_card/iin_catalog.json}
     METRICS_ENABLED: "true"
     OMP_NUM_THREADS: ${OCR_CPU_THREADS:-8}
     MKL_NUM_THREADS: ${OCR_CPU_THREADS:-8}

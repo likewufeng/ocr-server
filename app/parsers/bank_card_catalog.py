@@ -39,8 +39,19 @@ class BankCardCatalog:
         """统一大小写并删除空白，适配 OCR 对英文单词的分框结果。"""
         return re.sub(r"\s+", "", (text or "").upper())
 
+    @staticmethod
+    def _parse_card_type(value: str) -> CardType:
+        normalized = (value or "").strip().upper()
+        external_types = {
+            "DEBIT": CardType.DEBIT,
+            "CREDIT": CardType.CREDIT,
+        }
+        if normalized in external_types:
+            return external_types[normalized]
+        return CardType((value or "").strip())
+
     @classmethod
-    def load(cls, path: Path) -> "BankCardCatalog":
+    def load(cls, path: Path, iin_path: Optional[Path] = None) -> "BankCardCatalog":
         try:
             with path.open("r", encoding="utf-8") as catalog_file:
                 raw = json.load(catalog_file)
@@ -76,12 +87,37 @@ class BankCardCatalog:
             if not re.fullmatch(r"\d{6,8}", prefix) or not bank_name:
                 raise RuntimeError(f"Invalid bank card BIN rule: {rule}")
             try:
-                parsed_card_type = CardType(card_type)
+                parsed_card_type = cls._parse_card_type(card_type)
             except ValueError as exc:
                 raise RuntimeError(f"Invalid card type in BIN rule: {rule}") from exc
             if prefix in parsed_bin_rules:
                 raise RuntimeError(f"Duplicate bank card BIN prefix: {prefix}")
             parsed_bin_rules[prefix] = BinRule(bank_name, parsed_card_type)
+
+        # 外部 IIN 数据作为补充，主目录中的人工校准规则优先级更高。
+        if iin_path is not None:
+            try:
+                with iin_path.open("r", encoding="utf-8") as iin_file:
+                    iin_raw = json.load(iin_file)
+            except FileNotFoundError as exc:
+                raise RuntimeError(f"Bank card IIN catalog does not exist: {iin_path}") from exc
+            except json.JSONDecodeError as exc:
+                raise RuntimeError(f"Invalid bank card IIN catalog JSON: {iin_path}") from exc
+
+            records = iin_raw.get("records")
+            if not isinstance(records, list):
+                raise RuntimeError("Bank card IIN catalog requires a records list")
+            for record in records:
+                prefix = str(record.get("prefix", "")).strip()
+                bank_name = str(record.get("bank_name", "")).strip()
+                card_type = str(record.get("card_type", "")).strip()
+                if not re.fullmatch(r"\d{6,8}", prefix) or not bank_name:
+                    raise RuntimeError(f"Invalid bank card IIN record: {record}")
+                try:
+                    parsed_card_type = cls._parse_card_type(card_type)
+                except ValueError as exc:
+                    raise RuntimeError(f"Invalid card type in IIN record: {record}") from exc
+                parsed_bin_rules.setdefault(prefix, BinRule(bank_name, parsed_card_type))
 
         parsed_card_type_aliases: Dict[CardType, Tuple[str, ...]] = {}
         for raw_card_type, values in card_type_aliases.items():
@@ -114,5 +150,6 @@ class BankCardCatalog:
     def find_bin_rule(self, card_number: str) -> Optional[BinRule]:
         for prefix, rule in self._bin_rules.items():
             if card_number.startswith(prefix):
-                return rule
+                canonical_name = self.find_bank_name(rule.bank_name) or rule.bank_name
+                return BinRule(canonical_name, rule.card_type)
         return None
