@@ -190,6 +190,18 @@ def test_bank_card_type_uses_product_name_enum():
     print("Bank Card Type Product Name Test Passed!")
 
 
+def test_bank_card_type_uses_icbc_product_name():
+    print("\n--- Testing ICBC Product Card Type ---")
+    lines = [
+        OCRLine(text="工银灵通卡", left=50, top=10, right=180, bottom=35, score=0.99),
+        OCRLine(text="4532015112830366", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["card_type"] == "借记卡"
+    assert result["card_type_source"] == "card_face"
+    print("ICBC Product Card Type Test Passed!")
+
+
 def test_bank_card_preserves_unlisted_local_bank_name():
     print("\n--- Testing Unlisted Local Bank Name ---")
     lines = [
@@ -864,6 +876,7 @@ if __name__ == "__main__":
     test_bank_card_uses_english_bank_name_alias()
     test_bank_card_uses_communications_bank_bin()
     test_bank_card_type_uses_product_name_enum()
+    test_bank_card_type_uses_icbc_product_name()
     test_bank_card_preserves_unlisted_local_bank_name()
     test_bank_card_recovers_single_symbol_in_embossed_number()
     test_bank_card_valid_date_accepts_year_month_format()

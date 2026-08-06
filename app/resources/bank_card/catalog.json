@@ -40,7 +40,7 @@
     {"name": "恒生银行", "aliases": ["HANG SENG BANK"]}
   ],
   "card_type_aliases": {
-    "借记卡": ["借记卡", "储蓄卡", "一卡通", "DEBIT", "SAVINGS", "太平洋卡", "PACIFIC CARD"],
+    "借记卡": ["借记卡", "储蓄卡", "一卡通", "DEBIT", "SAVINGS", "太平洋卡", "PACIFIC CARD", "工银灵通卡", "灵通卡"],
     "信用卡": ["信用卡", "贷记卡", "CREDIT CARD"]
   },
   "bin_rules": [
