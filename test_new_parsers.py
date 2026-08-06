@@ -244,6 +244,19 @@ def test_bank_card_valid_date_accepts_year_month_format():
     print("Bank Card Year Month Valid Date Test Passed!")
 
 
+def test_bank_card_valid_date_ignores_nearby_card_suffix():
+    print("\n--- Testing Bank Card Valid Date Near Card Suffix ---")
+    lines = [
+        OCRLine(text="4532015112830366", left=50, top=165, right=460, bottom=200, score=0.97),
+        OCRLine(text="4895", left=81, top=205, right=116, bottom=220, score=0.99),
+        OCRLine(text="MONTHYEAR", left=262, top=214, right=322, bottom=224, score=0.99),
+        OCRLine(text="08/21", left=259, top=222, right=330, bottom=247, score=0.98),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["valid_date"] == "08/21"
+    print("Bank Card Valid Date Near Card Suffix Test Passed!")
+
+
 def test_bank_card_unknown_type_is_not_guessed_by_length():
     print("\n--- Testing Bank Card Unknown Type ---")
     lines = [
@@ -880,6 +893,7 @@ if __name__ == "__main__":
     test_bank_card_preserves_unlisted_local_bank_name()
     test_bank_card_recovers_single_symbol_in_embossed_number()
     test_bank_card_valid_date_accepts_year_month_format()
+    test_bank_card_valid_date_ignores_nearby_card_suffix()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()

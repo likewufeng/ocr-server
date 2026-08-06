@@ -223,6 +223,12 @@ class BankCardParser:
         candidates = []
         seen_groups = set()
 
+        # 单独文本框优先参与候选，避免卡号下方的重复尾号与有效期被误拼接。
+        groups = []
+        for line in all_lines:
+            if id(line) not in card_line_ids:
+                groups.append([line])
+
         for line in all_lines:
             row = [
                 item for item in layout.same_row(
@@ -231,6 +237,9 @@ class BankCardParser:
                 if id(item) not in card_line_ids
             ]
             row.sort(key=lambda item: item.left)
+            groups.append(row)
+
+        for row in groups:
             group_key = tuple(id(item) for item in row)
             if not row or group_key in seen_groups:
                 continue
