@@ -221,6 +221,17 @@ def test_bank_card_recovers_single_symbol_in_embossed_number():
     print("Bank Card Embossed Number Repair Test Passed!")
 
 
+def test_bank_card_valid_date_accepts_year_month_format():
+    print("\n--- Testing Bank Card Year Month Valid Date ---")
+    lines = [
+        OCRLine(text="4532015112830366", left=50, top=100, right=400, bottom=130, score=0.99),
+        OCRLine(text="2008/04", left=50, top=150, right=180, bottom=175, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["valid_date"] == "04/08"
+    print("Bank Card Year Month Valid Date Test Passed!")
+
+
 def test_bank_card_unknown_type_is_not_guessed_by_length():
     print("\n--- Testing Bank Card Unknown Type ---")
     lines = [
@@ -855,6 +866,7 @@ if __name__ == "__main__":
     test_bank_card_type_uses_product_name_enum()
     test_bank_card_preserves_unlisted_local_bank_name()
     test_bank_card_recovers_single_symbol_in_embossed_number()
+    test_bank_card_valid_date_accepts_year_month_format()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()

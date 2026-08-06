@@ -203,8 +203,14 @@ class BankCardParser:
     @classmethod
     def _extract_valid_date_from_text(cls, text: str) -> str:
         normalized = cls._clean_valid_text(text)
+        year_month_match = re.search(
+            r"(?<!\d)((?:(?:19|20)\d{2}|\d{2}))\s*/\s*(0[1-9]|1[0-2])(?!\d)",
+            normalized,
+        )
+        if year_month_match:
+            return f"{year_month_match.group(2)}/{year_month_match.group(1)[-2:]}"
         match = re.search(
-            r"(?<!\d)(0[1-9]|1[0-2])\s*/?\s*((?:20)?[2-3]\d)(?!\d)",
+            r"(?<!\d)(0[1-9]|1[0-2])\s*/?\s*((?:(?:19|20)\d{2}|\d{2}))(?!\d)",
             normalized,
         )
         if not match:
