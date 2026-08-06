@@ -20,7 +20,7 @@ class IDFrontParser:
     _NATION_LABEL_PATTERN = re.compile(r"[民闲]族")
     _PERSON_NAME_PATTERN = re.compile(r"^[\u4e00-\u9fff·]{2,20}$")
     _NON_NAME_TEXTS = {
-        "性别", "民族", "出生", "住址", "公民身份", "公民身份号码",
+        "姓名", "性别", "民族", "出生", "住址", "公民身份", "公民身份号码",
     }
     _NATION_NAMES = {
         "汉", "蒙古", "回", "藏", "维吾尔", "苗", "彝", "壮", "布依",
@@ -144,9 +144,19 @@ class IDFrontParser:
             if not data["name"]:
                 right = layout.right_of(name_line)
                 if right:
-                    data["name"] = self._clean_person_name(
-                        "".join(i.text for i in right)
-                    )
+                    # 姓名右侧可能混入藏文、证件水印等 OCR 噪声。优先选择
+                    # 单个可校验的人名框，避免噪声与真实姓名拼接后整体失效。
+                    for item in right:
+                        candidate = self._clean_person_name(item.text)
+                        if candidate:
+                            data["name"] = candidate
+                            break
+
+                    # 兼容姓名被拆成多个单字框的情况。
+                    if not data["name"]:
+                        data["name"] = self._clean_person_name(
+                            "".join(i.text for i in right)
+                        )
 
         if not data["name"]:
             data["name"] = self._find_name_without_label(layout, gender_line)
@@ -160,6 +170,15 @@ class IDFrontParser:
             m = re.search(r"性[别州]\s*(男|女)", text)
             if m:
                 data["gender"] = m.group(1)
+
+            # 藏文、证件底纹等噪声可能插入“性别”和“男/女”之间，
+            # 此时按独立文本框兜底，不依赖同行文本拼接结果。
+            if not data["gender"]:
+                for item in layout.same_row(gender_line, tolerance=30):
+                    candidate = (item.text or "").strip()
+                    if candidate in {"男", "女"}:
+                        data["gender"] = candidate
+                        break
 
             m = re.search(r"[民闲]族\s*([\u4e00-\u9fff]{1,8})", text)
             if m:

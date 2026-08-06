@@ -561,6 +561,22 @@ def test_id_front_with_sample_watermark_and_overlapping_id_number():
     print("ID Front Sample Watermark Test Passed!")
 
 
+def test_id_front_with_name_label_and_nearby_noise():
+    print("\n--- Testing ID Front With Name Label And Nearby Noise ---")
+    lines = [
+        OCRLine(text="g", left=120, top=34, right=324, bottom=56, score=0.77),
+        OCRLine(text="姓名", left=55, top=56, right=105, bottom=79, score=0.99),
+        OCRLine(text="夏格仓·晋美平措朗杰", left=121, top=56, right=310, bottom=78, score=0.99),
+        OCRLine(text="61", left=120, top=78, right=139, bottom=97, score=0.78),
+        OCRLine(text="性别", left=55, top=99, right=105, bottom=123, score=0.99),
+        OCRLine(text="男", left=121, top=99, right=144, bottom=122, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["name"] == "夏格仓·晋美平措朗杰"
+    assert result["gender"] == "男"
+    print("ID Front Name Label And Nearby Noise Test Passed!")
+
+
 def test_business_license_with_supplemented_address_crop():
     print("\n--- Testing Business License With Supplemented Address Crop ---")
     lines = [
@@ -664,6 +680,7 @@ if __name__ == "__main__":
     test_id_front_with_supplemented_nation_crop()
     test_id_front_with_mobile_label_typos()
     test_id_front_with_sample_watermark_and_overlapping_id_number()
+    test_id_front_with_name_label_and_nearby_noise()
     test_business_license_with_supplemented_address_crop()
     test_id_back_with_missing_authority_prefix()
     test_id_back_with_wrong_authority_prefix()
