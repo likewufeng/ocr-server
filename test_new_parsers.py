@@ -205,6 +205,22 @@ def test_bank_card_preserves_unlisted_local_bank_name():
     print("Unlisted Local Bank Name Test Passed!")
 
 
+def test_bank_card_recovers_single_symbol_in_embossed_number():
+    print("\n--- Testing Bank Card Embossed Number Repair ---")
+    lines = [
+        OCRLine(text="河南省农村信用社", left=50, top=10, right=260, bottom=35, score=0.99),
+        OCRLine(text="Henan Rural Credit Cooperative", left=50, top=45, right=410, bottom=70, score=0.99),
+        OCRLine(text="金燕卡", left=50, top=80, right=150, bottom=105, score=0.99),
+        OCRLine(text="622991~000000000000", left=50, top=120, right=400, bottom=145, score=0.96),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "河南农信"
+    assert result["card_number"] == "6229918000000000000"
+    assert result["card_type"] == "借记卡"
+    assert result["card_type_source"] == "bin"
+    print("Bank Card Embossed Number Repair Test Passed!")
+
+
 def test_bank_card_unknown_type_is_not_guessed_by_length():
     print("\n--- Testing Bank Card Unknown Type ---")
     lines = [
@@ -838,6 +854,7 @@ if __name__ == "__main__":
     test_bank_card_uses_communications_bank_bin()
     test_bank_card_type_uses_product_name_enum()
     test_bank_card_preserves_unlisted_local_bank_name()
+    test_bank_card_recovers_single_symbol_in_embossed_number()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()

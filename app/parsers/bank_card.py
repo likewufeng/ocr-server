@@ -20,6 +20,7 @@ class BankCardParser:
         "valid", "expiry", "expire", "exp date", "expdate",
         "有效期", "有效期限", "到期",
     )
+    CARD_NUMBER_SEPARATOR_CHARS = "~*·•_"
 
     def _clean_to_digits_with_lookalikes(self, text: str) -> str:
         """将 OCR 文本转换为数字，同时修正常见数字/字母混淆。"""
@@ -54,12 +55,31 @@ class BankCardParser:
             return []
 
         candidates = []
-        pattern = r"(?<![A-Za-z0-9])([0-9A-Za-z](?:[0-9A-Za-z\s-]{13,23})[0-9A-Za-z])(?![A-Za-z0-9])"
+        pattern = (
+            r"(?<![A-Za-z0-9])([0-9A-Za-z](?:[0-9A-Za-z\s~*·•_-]{13,23})"
+            r"[0-9A-Za-z])(?![A-Za-z0-9])"
+        )
         for match in re.finditer(pattern, text):
-            candidate = self._clean_to_digits_with_lookalikes(match.group(1))
+            raw_candidate = match.group(1)
+            candidate = self._clean_to_digits_with_lookalikes(raw_candidate)
             if 15 <= len(candidate) <= 19:
                 candidates.append(candidate)
-        return candidates
+
+            # 凸印卡号中单个字符可能被 OCR 识别为 ~、* 等符号。仅在 Luhn
+            # 校验能唯一支持某个数字时，才将该符号还原为数字候选。
+            repaired_candidates = set()
+            for index, char in enumerate(raw_candidate):
+                if char not in self.CARD_NUMBER_SEPARATOR_CHARS:
+                    continue
+                for digit in "0123456789":
+                    repaired = self._clean_to_digits_with_lookalikes(
+                        f"{raw_candidate[:index]}{digit}{raw_candidate[index + 1:]}"
+                    )
+                    if 15 <= len(repaired) <= 19 and self._luhn_valid(repaired):
+                        repaired_candidates.add(repaired)
+            if len(repaired_candidates) == 1:
+                candidates.extend(repaired_candidates)
+        return list(dict.fromkeys(candidates))
 
     def _collect_card_candidates(self, layout: Layout) -> List[Dict]:
         all_lines = layout.all() or []

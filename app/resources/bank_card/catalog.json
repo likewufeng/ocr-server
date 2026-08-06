@@ -41,7 +41,7 @@
   ],
   "card_type_aliases": {
     "借记卡": ["借记卡", "储蓄卡", "一卡通", "DEBIT", "SAVINGS", "太平洋卡", "PACIFIC CARD"],
-    "信用卡": ["信用卡", "贷记卡", "CREDIT"]
+    "信用卡": ["信用卡", "贷记卡", "CREDIT CARD"]
   },
   "bin_rules": [
     {"prefix": "436742", "bank_name": "中国建设银行", "card_type": "信用卡"},
@@ -54,6 +54,7 @@
     {"prefix": "622588", "bank_name": "招商银行", "card_type": "借记卡"},
     {"prefix": "622188", "bank_name": "中国邮政储蓄银行", "card_type": "借记卡"},
     {"prefix": "622622", "bank_name": "中国民生银行", "card_type": "借记卡"},
-    {"prefix": "622155", "bank_name": "平安银行", "card_type": "借记卡"}
+    {"prefix": "622155", "bank_name": "平安银行", "card_type": "借记卡"},
+    {"prefix": "622991", "bank_name": "河南农信", "card_type": "借记卡"}
   ]
 }
