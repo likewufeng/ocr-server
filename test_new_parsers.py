@@ -166,6 +166,29 @@ def test_bank_card_uses_english_bank_name_alias():
     print("Bank Card English Bank Name Test Passed!")
 
 
+def test_bank_card_uses_communications_bank_bin():
+    print("\n--- Testing Communications Bank BIN ---")
+    lines = [
+        OCRLine(text="6222600000000000", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "交通银行"
+    assert result["card_type"] == "借记卡"
+    assert result["valid_date"] == ""
+    print("Communications Bank BIN Test Passed!")
+
+
+def test_bank_card_type_uses_product_name_enum():
+    print("\n--- Testing Bank Card Type Product Name ---")
+    lines = [
+        OCRLine(text="太平洋卡 PACIFIC CARD", left=50, top=10, right=300, bottom=35, score=0.99),
+        OCRLine(text="4532015112830366", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["card_type"] == "借记卡"
+    print("Bank Card Type Product Name Test Passed!")
+
+
 def test_bank_card_unknown_type_is_not_guessed_by_length():
     print("\n--- Testing Bank Card Unknown Type ---")
     lines = [
@@ -796,6 +819,8 @@ if __name__ == "__main__":
     test_bank_card_uses_bin_when_bank_text_is_missing()
     test_bank_card_uses_china_bank_bin()
     test_bank_card_uses_english_bank_name_alias()
+    test_bank_card_uses_communications_bank_bin()
+    test_bank_card_type_uses_product_name_enum()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()

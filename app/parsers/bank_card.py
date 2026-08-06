@@ -2,9 +2,18 @@
 """银行卡 OCR 结果解析。"""
 
 import re
+from enum import Enum
 from typing import Dict, List, Optional
 
 from app.utils.layout import Layout, OCRLine
+
+
+class CardType(str, Enum):
+    """银行卡种类，保持 API 返回值为现有中文文本。"""
+
+    DEBIT = "借记卡"
+    CREDIT = "信用卡"
+    UNKNOWN = ""
 
 
 class BankCardParser:
@@ -33,20 +42,23 @@ class BankCardParser:
     # 只放入高置信度的常见号段。号段库不是完整银行卡数据库，后续可按业务样本继续扩展。
     # 候选中已经识别出银行名称时，优先相信 OCR 文本，不用号段覆盖它。
     BIN_RULES = {
-        "436742": ("中国建设银行", "信用卡"),
-        "622700": ("中国建设银行", "借记卡"),
-        "622848": ("中国农业银行", "借记卡"),
-        "621660": ("中国银行", "借记卡"),
-        "621669": ("中国银行", "借记卡"),
-        "622202": ("中国工商银行", "借记卡"),
-        "622588": ("招商银行", "借记卡"),
-        "622188": ("中国邮政储蓄银行", "借记卡"),
-        "622622": ("中国民生银行", "借记卡"),
-        "622155": ("平安银行", "借记卡"),
+        "436742": ("中国建设银行", CardType.CREDIT),
+        "622700": ("中国建设银行", CardType.DEBIT),
+        "622848": ("中国农业银行", CardType.DEBIT),
+        "621660": ("中国银行", CardType.DEBIT),
+        "621669": ("中国银行", CardType.DEBIT),
+        "622260": ("交通银行", CardType.DEBIT),
+        "622202": ("中国工商银行", CardType.DEBIT),
+        "622588": ("招商银行", CardType.DEBIT),
+        "622188": ("中国邮政储蓄银行", CardType.DEBIT),
+        "622622": ("中国民生银行", CardType.DEBIT),
+        "622155": ("平安银行", CardType.DEBIT),
     }
 
-    DEBIT_KEYWORDS = ("借记卡", "储蓄卡", "一卡通", "debit", "savings")
-    CREDIT_KEYWORDS = ("信用卡", "贷记卡", "credit")
+    CARD_TYPE_KEYWORDS = {
+        CardType.DEBIT: ("借记卡", "储蓄卡", "一卡通", "太平洋卡", "debit", "savings", "pacific card"),
+        CardType.CREDIT: ("信用卡", "贷记卡", "credit"),
+    }
     EXPIRY_KEYWORDS = (
         "valid thru", "validthrough", "valid till", "validtill",
         "good thru", "goodthrough", "good till", "goodtill",
@@ -196,19 +208,22 @@ class BankCardParser:
                 return self.BIN_RULES[prefix][0]
         return ""
 
-    def _extract_card_type(self, layout: Layout, card_number: str) -> str:
-        text = "".join(layout.texts() or []).replace(" ", "").lower()
-        if any(keyword.lower() in text for keyword in self.DEBIT_KEYWORDS):
-            return "借记卡"
-        if any(keyword.lower() in text for keyword in self.CREDIT_KEYWORDS):
-            return "信用卡"
+    def _extract_card_type(self, layout: Layout, card_number: str) -> CardType:
+        text = "".join(layout.texts() or []).lower()
+        compact_text = re.sub(r"\s+", "", text)
+        for card_type, keywords in self.CARD_TYPE_KEYWORDS.items():
+            if any(
+                keyword.lower() in text or keyword.lower().replace(" ", "") in compact_text
+                for keyword in keywords
+            ):
+                return card_type
 
         for prefix in sorted(self.BIN_RULES, key=len, reverse=True):
             if card_number.startswith(prefix):
                 return self.BIN_RULES[prefix][1]
 
         # 不能仅凭 16/19 位长度可靠判断借记卡或信用卡，未知时保留为空。
-        return ""
+        return CardType.UNKNOWN
 
     @staticmethod
     def _clean_valid_text(text: str) -> str:
@@ -271,7 +286,7 @@ class BankCardParser:
             "type": "bank_card",
             "bank_name": "",
             "card_number": "",
-            "card_type": "",
+            "card_type": CardType.UNKNOWN.value,
             "valid_date": "",
         }
 
@@ -282,6 +297,6 @@ class BankCardParser:
         }
         data["card_number"] = card_number
         data["bank_name"] = self._extract_bank_name(layout, card_number)
-        data["card_type"] = self._extract_card_type(layout, card_number)
+        data["card_type"] = self._extract_card_type(layout, card_number).value
         data["valid_date"] = self._extract_valid_date(layout, card_line_ids)
         return data
