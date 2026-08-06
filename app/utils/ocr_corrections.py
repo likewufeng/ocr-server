@@ -7,6 +7,7 @@ def normalize_known_admin_text(text: str) -> str:
     exact_corrections = {
         "关池县公安局": "渑池县公安局",
         "池县公安局": "渑池县公安局",
+        "林旗安局": "巴林右旗公安局",
     }
     if normalized in exact_corrections:
         return exact_corrections[normalized]

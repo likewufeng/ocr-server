@@ -681,6 +681,20 @@ def test_id_back_with_overlapping_authority_box():
     assert result["valid_date"] == "2004.10.27-2024.10.26"
     print("ID Back Overlapping Authority Box Test Passed!")
 
+
+def test_id_back_with_truncated_balinyouqi_authority():
+    print("\n--- Testing ID Back With Truncated Balinyouqi Authority ---")
+    lines = [
+        OCRLine(text="中华人民共和国", left=307, top=51, right=710, bottom=107, score=0.99),
+        OCRLine(text="居民身份证", left=252, top=137, right=760, bottom=211, score=0.99),
+        OCRLine(text="签发机关林旗安局", left=72, top=323, right=721, bottom=402, score=0.79),
+        OCRLine(text="有效期限 2004.10.27-2024.10.26", left=138, top=396, right=671, bottom=462, score=0.98),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_back")
+    assert result["authority"] == "巴林右旗公安局"
+    assert result["valid_date"] == "2004.10.27-2024.10.26"
+    print("ID Back Truncated Balinyouqi Authority Test Passed!")
+
 if __name__ == "__main__":
     test_document_type_hint()
     test_ocr_cache_round_trip()
@@ -704,6 +718,7 @@ if __name__ == "__main__":
     test_id_back_with_mixed_date_separators()
     test_id_back_with_comma_date_separator()
     test_id_back_with_overlapping_authority_box()
+    test_id_back_with_truncated_balinyouqi_authority()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
     test_invoice_with_typos()
