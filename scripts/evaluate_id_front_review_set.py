@@ -23,6 +23,49 @@ def request_ocr_with_retry(url: str, image_path: Path, timeout: float) -> Dict[s
     raise last_error
 
 
+def render_markdown(report: Dict[str, object]) -> str:
+    """Render a privacy-safe report for results returned by the current API."""
+    lines = [
+        "# ID Front OCR API Regression Report",
+        "",
+        "This report evaluates the current /ocr API against the latest human-reviewed gold set.",
+        "No source document field values are included.",
+        "",
+        "| Metric | Result |",
+        "| --- | ---: |",
+        "| Reviewed samples | {} |".format(report["reviewed_samples"]),
+        "| Successful requests | {} |".format(report["successful_requests"]),
+        "| Failed requests | {} |".format(report["failed_requests"]),
+        "| All-fields exact accuracy | {}% |".format(report["all_fields_exact_rate"]),
+        "",
+        "## Field Accuracy",
+        "",
+        "| Field | Correct | Total | Accuracy |",
+        "| --- | ---: | ---: | ---: |",
+    ]
+    for field in FIELD_NAMES:
+        item = report["field_accuracy"][field]
+        lines.append(
+            "| {} | {} | {} | {}% |".format(
+                field,
+                item["correct"],
+                item["total"],
+                item["accuracy_percent"],
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "## Evaluation Scope",
+            "",
+            "- Includes rows marked `confirmed` or `corrected` in the reviewed CSV.",
+            "- Field values are normalized before exact comparison.",
+            "- Request failures are reported separately and are excluded from field totals.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate current ID-front OCR against reviewed CSV")
     parser.add_argument("--input-csv", required=True, type=Path)
@@ -30,6 +73,7 @@ def main() -> int:
     parser.add_argument("--url", default="http://127.0.0.1:8000")
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--output-json", required=True, type=Path)
+    parser.add_argument("--output-markdown", type=Path)
     args = parser.parse_args()
 
     from report_id_front_review_accuracy import read_review_rows
@@ -84,6 +128,9 @@ def main() -> int:
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if args.output_markdown:
+        args.output_markdown.parent.mkdir(parents=True, exist_ok=True)
+        args.output_markdown.write_text(render_markdown(report), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if not failures else 1
 
