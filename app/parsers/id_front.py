@@ -227,6 +227,13 @@ class IDFrontParser:
             )
             data["birthday"] = self._extract_birthday(birth_row_text)
 
+        # Detection can place the birth label and date on separate text rows.
+        # A complete Chinese-style date from the whole layout is more reliable
+        # than a potentially merged neighbouring row. It cannot match ID digits.
+        layout_birthday = self._extract_birthday("".join(layout.original_texts()))
+        if layout_birthday:
+            data["birthday"] = layout_birthday
+
         # ---------------- 地址 ----------------
 
         addr_line = layout.find("住址")

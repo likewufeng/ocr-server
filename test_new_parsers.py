@@ -588,6 +588,23 @@ def test_id_front_with_split_birthday_and_admin_area_typo():
     assert result["id_number"] == "411221199108152534"
     print("ID Front Split Birthday and Admin Area Typo Test Passed!")
 
+def test_id_front_uses_original_ocr_order_for_split_birthday():
+    print("\n--- Testing ID Front Split Birthday in Original OCR Order ---")
+    lines = [
+        OCRLine(text="出生", left=50, top=120, right=90, bottom=145, score=0.99),
+        OCRLine(text="2001年", left=100, top=120, right=165, bottom=145, score=0.99),
+        OCRLine(text="水印", left=170, top=121, right=210, bottom=145, score=0.99),
+        OCRLine(text="6月2日", left=220, top=120, right=285, bottom=145, score=0.99),
+    ]
+    layout = Layout(
+        lines,
+        recognition_texts=["出生", "2001年", "6月2日", "水印"],
+    )
+    result = OCRParser().parse(layout, document_type="id_front")
+    assert result["birthday"] == "2001年6月2日", result
+    print("ID Front Original OCR Order Birthday Test Passed!")
+
+
 def test_id_front_birthday_fallback_from_id_number():
     print("\n--- Testing ID Front Birthday Fallback from ID Number ---")
     lines = [
@@ -866,6 +883,7 @@ if __name__ == "__main__":
     test_id_front_with_merged_address_label_and_continuation()
     test_id_front_with_admin_area_typo()
     test_id_front_with_split_birthday_and_admin_area_typo()
+    test_id_front_uses_original_ocr_order_for_split_birthday()
     test_id_front_birthday_fallback_from_id_number()
     test_id_front_with_noisy_birthday_month()
     test_id_front_with_misrecognized_name_label()

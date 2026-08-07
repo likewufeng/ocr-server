@@ -39,18 +39,25 @@ class OCRLine:
 
 class Layout:
 
-    def __init__(self, lines: List[OCRLine]):
+    def __init__(
+        self, lines: List[OCRLine], recognition_texts: Optional[List[str]] = None
+    ):
 
         self.lines = sorted(
             lines,
             key=lambda x: (x.top, x.left)
         )
+        self.recognition_texts = recognition_texts or [line.text for line in lines]
 
     def all(self) -> List[OCRLine]:
         return self.lines
 
     def texts(self) -> List[str]:
         return [i.text for i in self.lines]
+
+    def original_texts(self) -> List[str]:
+        """Return retained OCR text in the recognizer's original sequence."""
+        return self.recognition_texts
 
     def find(self, keyword: str) -> Optional[OCRLine]:
         """
@@ -331,6 +338,7 @@ def build_layout(
     scores = ocr_result["scores"]
 
     lines = []
+    recognition_texts = []
 
     for text, box, score in zip(
             texts,
@@ -350,6 +358,8 @@ def build_layout(
 
         if score < min_score:
             continue
+
+        recognition_texts.append(text)
 
         # ---------- 构建 OCRLine ----------
 
@@ -373,4 +383,4 @@ def build_layout(
 
         )
 
-    return Layout(lines)
+    return Layout(lines, recognition_texts=recognition_texts)
