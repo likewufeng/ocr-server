@@ -25,6 +25,7 @@ from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
 from app.config import OCR_ID_FRONT_MIN_SCORE
+from app.config import OCR_ID_FRONT_USE_DOC_UNWARPING
 from app.config import OCR_MODEL_PROFILE
 from app.config import OCR_MODEL_ENGINE
 from app.config import OCR_MODEL_VARIANT
@@ -73,8 +74,9 @@ BUSINESS_ADDRESS_KEYWORDS = ("省", "市", "区", "县", "路", "街", "广场",
 
 def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     """为 PaddleX OCR pipeline 构造显式配置，可选择官方模型或自训练模型。"""
+    configured_doc_unwarping = OCR_USE_DOC_UNWARPING or OCR_ID_FRONT_USE_DOC_UNWARPING
     use_doc_preprocessor = not use_fine_tuned and (
-        OCR_ENABLE_DOC_ORIENTATION_MODEL or OCR_USE_DOC_UNWARPING
+        OCR_ENABLE_DOC_ORIENTATION_MODEL or configured_doc_unwarping
     )
     text_detection_config = {
         "model_name": (
@@ -122,7 +124,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
                 doc_preprocessor_modules["DocOrientationClassify"]["model_dir"] = str(
                     doc_orientation_model_path
                 )
-        if OCR_USE_DOC_UNWARPING:
+        if configured_doc_unwarping:
             doc_preprocessor_modules["DocUnwarping"] = {
                 "module_name": "image_unwarping",
                 "model_name": "UVDoc",
@@ -136,7 +138,7 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
             "DocPreprocessor": {
                 "pipeline_name": "doc_preprocessor",
                 "use_doc_orientation_classify": OCR_ENABLE_DOC_ORIENTATION_MODEL,
-                "use_doc_unwarping": OCR_USE_DOC_UNWARPING,
+                "use_doc_unwarping": configured_doc_unwarping,
                 "SubModules": doc_preprocessor_modules,
             },
         }
@@ -205,6 +207,7 @@ class OCRService:
         if document_type == "id_front":
             effective_min_score = min(min_score, OCR_ID_FRONT_MIN_SCORE)
 
+        effective_unwarping = self._effective_unwarping(document_type)
         settings = {
             "version": OCR_CACHE_VERSION,
             "model_version": OCR_MODEL_VERSION,
@@ -213,13 +216,19 @@ class OCRService:
             "fine_tuned": OCR_USE_FINE_TUNED_MODEL,
             "inference_backend": OCR_INFERENCE_BACKEND,
             "orientation": self._effective_orientation(auto_orientation),
-            "unwarping": OCR_USE_DOC_UNWARPING,
+            "unwarping": effective_unwarping,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
             "min_score": effective_min_score,
         }
         serialized = json.dumps(settings, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
+
+    @staticmethod
+    def _effective_unwarping(document_type: Optional[str]) -> bool:
+        return OCR_USE_DOC_UNWARPING or (
+            document_type == "id_front" and OCR_ID_FRONT_USE_DOC_UNWARPING
+        )
 
     def initialize(self):
         if self.pipeline is not None:
@@ -769,6 +778,7 @@ class OCRService:
         request_logger = logger.bind(request_id=request_id or "-")
         recognize_started_at = time.perf_counter()
         effective_orientation = self._effective_orientation(auto_orientation)
+        effective_unwarping = self._effective_unwarping(document_type)
         detection_side_limit = self._detection_side_limit(document_type)
         effective_min_score = min_score
         if document_type == "id_front":
@@ -791,7 +801,7 @@ class OCRService:
                 predict_options.update(
                     {
                         "use_doc_orientation_classify": effective_orientation,
-                        "use_doc_unwarping": OCR_USE_DOC_UNWARPING,
+                        "use_doc_unwarping": effective_unwarping,
                     }
                 )
 
@@ -852,7 +862,7 @@ class OCRService:
 
                 doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
                 if not self.pipeline_uses_fine_tuned_detector and (
-                    effective_orientation or OCR_USE_DOC_UNWARPING
+                    effective_orientation or effective_unwarping
                 ):
                     self._schedule_platform_preprocessed_image(
                         doc_preprocessor_res, output_dir, request_logger

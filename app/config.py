@@ -149,6 +149,11 @@ OCR_USE_DOC_ORIENTATION = _env_bool("OCR_USE_DOC_ORIENTATION", True)
 
 # UVDoc 用于弯曲、透视文档展平，CPU 开销较高。
 OCR_USE_DOC_UNWARPING = _env_bool("OCR_USE_DOC_UNWARPING", False)
+# 仅对身份证正面启用文档展平。开启后可改善透视/轻微弯曲图片，CPU 会增加推理耗时；
+# 建议先在鲁棒性测试集上做 A/B，对 GPU 生产环境可优先开启。
+OCR_ID_FRONT_USE_DOC_UNWARPING = _env_bool(
+    "OCR_ID_FRONT_USE_DOC_UNWARPING", False
+)
 
 
 # ---------- 预处理排查图片 ----------

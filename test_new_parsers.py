@@ -36,6 +36,16 @@ def test_document_type_hint():
     print("Document Type Hint Test Passed!")
 
 
+def test_id_front_unwarping_is_document_specific():
+    from app.services.ocr_service import OCRService
+
+    service = OCRService()
+    assert service._effective_unwarping("id_front") is False
+    assert service._effective_unwarping("business_license") is False
+    assert service._effective_unwarping(None) is False
+    print("ID-front unwarping scope test passed!")
+
+
 def test_document_type_detects_bank_card_from_luhn_number():
     print("\n--- Testing Bank Card Detection From Luhn Number ---")
     lines = [
@@ -875,6 +885,7 @@ def test_id_back_with_truncated_balinyouqi_authority():
 
 if __name__ == "__main__":
     test_document_type_hint()
+    test_id_front_unwarping_is_document_specific()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()

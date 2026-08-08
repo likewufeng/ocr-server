@@ -35,6 +35,14 @@ OCR_INFERENCE_BACKEND=paddle
 OCR_USE_FINE_TUNED_MODEL=false
 ```
 
+### 身份证正面透视/弯曲增强
+
+```dotenv
+OCR_ID_FRONT_USE_DOC_UNWARPING=false
+```
+
+该开关只影响 `id_front`，开启后使用项目中的 UVDoc 对身份证正面做文档展平，适合透视、轻微弯曲和斜拍图片。CPU 会增加推理耗时，建议先在鲁棒性集上做对照；GPU 环境可优先测试 `true`。修改后需要重启服务或重建容器，且应递增 `OCR_CACHE_VERSION`，避免复用旧 OCR 缓存。
+
 配置优先级为：Shell/Docker 环境变量 > `.env` > `app/config.py` 默认值。Docker Compose 中的 `OCR_DEVICE: cpu` 是显式固定的，因此仅修改 `.env` 不能让当前 CPU Docker 镜像使用 GPU。
 
 ## 2. v5 与 v6 的模型档位
