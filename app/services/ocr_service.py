@@ -352,6 +352,39 @@ class OCRService:
         ]
         return scaled
 
+    @staticmethod
+    def _id_front_retry_is_safe(
+        first_result: dict[str, Any], retry_result: dict[str, Any]
+    ) -> tuple[bool, str]:
+        """Only accept a retry that fills blanks without changing known fields."""
+        try:
+            from app.parsers.parser import OCRParser
+            from app.utils.layout import build_layout
+
+            parser = OCRParser()
+            first = parser.parse(
+                build_layout(first_result), document_type="id_front"
+            )
+            retry = parser.parse(
+                build_layout(retry_result), document_type="id_front"
+            )
+        except Exception:
+            return False, "structured_parse_failed"
+
+        fields = ("name", "gender", "nation", "birthday", "address", "id_number")
+        filled_fields = []
+        for field in fields:
+            first_value = str(first.get(field) or "").strip()
+            retry_value = str(retry.get(field) or "").strip()
+            if first_value and first_value != retry_value:
+                return False, "retry_changed_{}".format(field)
+            if not first_value and retry_value:
+                filled_fields.append(field)
+
+        if not filled_fields:
+            return False, "retry_did_not_fill_field"
+        return True, "filled_{}".format(",".join(filled_fields))
+
     def _create_id_front_retry_image(
         self,
         image_path: str,
@@ -1074,7 +1107,11 @@ class OCRService:
                 )
                 evidence = self._id_front_evidence(texts) if retry_candidate else {}
                 incomplete = retry_candidate and not all(evidence.values())
-                if retry_candidate and "available" not in quality_info:
+                if (
+                    retry_candidate
+                    and OCR_ID_FRONT_QUALITY_RETRY_ENABLED
+                    and "available" not in quality_info
+                ):
                     quality_info.update(self._analyze_image_quality(image_path))
                 quality_info["retry_enabled"] = bool(
                     OCR_ID_FRONT_QUALITY_RETRY_ENABLED and retry_candidate
@@ -1171,10 +1208,19 @@ class OCRService:
                             quality_info["first_pass_rank"] = first_rank
                             quality_info["retry_rank"] = retry_rank
                             if retry_rank > first_rank:
-                                selected_result = self._scale_ocr_result(
-                                    retry_result, retry_scale
+                                retry_is_safe, retry_reason = (
+                                    self._id_front_retry_is_safe(
+                                        first_result, retry_result
+                                    )
                                 )
-                                quality_info["selected_pass"] = "retry"
+                                quality_info["retry_selection_reason"] = retry_reason
+                                if retry_is_safe:
+                                    selected_result = self._scale_ocr_result(
+                                        retry_result, retry_scale
+                                    )
+                                    quality_info["selected_pass"] = "retry"
+                                else:
+                                    quality_info["selected_pass"] = "first"
                             else:
                                 quality_info["selected_pass"] = "first"
                         request_logger.info(

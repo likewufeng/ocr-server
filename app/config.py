@@ -158,7 +158,7 @@ OCR_ID_FRONT_USE_DOC_UNWARPING = _env_bool(
 # 身份证正面低质量图片的条件重试。首轮结果完整时不会触发第二次推理；
 # 重试只使用温和的放大、CLAHE 和锐化，不改变生产默认的 UVDoc 行为。
 OCR_ID_FRONT_QUALITY_RETRY_ENABLED = _env_bool(
-    "OCR_ID_FRONT_QUALITY_RETRY_ENABLED", True
+    "OCR_ID_FRONT_QUALITY_RETRY_ENABLED", False
 )
 OCR_ID_FRONT_RETRY_ON_INCOMPLETE = _env_bool(
     "OCR_ID_FRONT_RETRY_ON_INCOMPLETE", True
@@ -173,7 +173,7 @@ OCR_ID_FRONT_RETRY_BLUR_THRESHOLD = max(
     0.0, float(os.getenv("OCR_ID_FRONT_RETRY_BLUR_THRESHOLD", "45"))
 )
 OCR_ID_FRONT_RETRY_MIN_SIDE = max(
-    1, int(os.getenv("OCR_ID_FRONT_RETRY_MIN_SIDE", "700"))
+    1, int(os.getenv("OCR_ID_FRONT_RETRY_MIN_SIDE", "300"))
 )
 OCR_ID_FRONT_RETRY_DARK_MEAN = min(
     255.0, max(0.0, float(os.getenv("OCR_ID_FRONT_RETRY_DARK_MEAN", "35")))
@@ -183,7 +183,7 @@ OCR_ID_FRONT_RETRY_BRIGHT_MEAN = min(
 )
 OCR_ID_FRONT_RETRY_CLIPPED_RATIO = min(
     1.0,
-    max(0.0, float(os.getenv("OCR_ID_FRONT_RETRY_CLIPPED_RATIO", "0.08"))),
+    max(0.0, float(os.getenv("OCR_ID_FRONT_RETRY_CLIPPED_RATIO", "0.35"))),
 )
 
 
@@ -201,7 +201,7 @@ OCR_PREPROCESSED_JPEG_QUALITY = min(
 OCR_CACHE_ENABLED = _env_bool("OCR_CACHE_ENABLED", True)
 
 # 模型或预处理算法发生不兼容变化时递增版本号，可立即隔离旧缓存。
-OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "5").strip()
+OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "6").strip()
 
 
 # ---------- HTTP OCR 并发 ----------

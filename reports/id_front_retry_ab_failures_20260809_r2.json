@@ -1,0 +1,110 @@
+{
+  "dataset": "D:\\web\\self\\study\\ocr-datasets\\id-front\\v1_20260807\\annotation_template.csv",
+  "images_dir": "D:\\web\\self\\study\\ocr-datasets\\id-front\\v1_20260807\\images",
+  "selected_samples": 95,
+  "selection": "reviewed rows with at least one corrected field",
+  "targets": [
+    {
+      "name": "retry_off",
+      "url": "http://127.0.0.1:8013",
+      "samples": 95,
+      "successful_requests": 95,
+      "failed_requests": 0,
+      "all_fields_exact_correct": 82,
+      "all_fields_exact_rate": 86.32,
+      "field_accuracy": {
+        "name": {
+          "correct": 85,
+          "total": 95,
+          "accuracy_percent": 89.47
+        },
+        "gender": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "nation": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "birthday": {
+          "correct": 92,
+          "total": 95,
+          "accuracy_percent": 96.84
+        },
+        "address": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "id_number": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        }
+      },
+      "latency_seconds": {
+        "average": 0.1538,
+        "p50": 0.148,
+        "p95": 0.1858,
+        "max": 0.3489
+      },
+      "throughput_requests_per_second": 6.503,
+      "retry_triggered": 0,
+      "selected_retry": 0,
+      "failures": []
+    },
+    {
+      "name": "retry_on",
+      "url": "http://127.0.0.1:8014",
+      "samples": 95,
+      "successful_requests": 95,
+      "failed_requests": 0,
+      "all_fields_exact_correct": 82,
+      "all_fields_exact_rate": 86.32,
+      "field_accuracy": {
+        "name": {
+          "correct": 85,
+          "total": 95,
+          "accuracy_percent": 89.47
+        },
+        "gender": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "nation": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "birthday": {
+          "correct": 92,
+          "total": 95,
+          "accuracy_percent": 96.84
+        },
+        "address": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "id_number": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        }
+      },
+      "latency_seconds": {
+        "average": 0.4943,
+        "p50": 0.2168,
+        "p95": 1.022,
+        "max": 1.2985
+      },
+      "throughput_requests_per_second": 2.0233,
+      "retry_triggered": 36,
+      "selected_retry": 0,
+      "failures": []
+    }
+  ]
+}
