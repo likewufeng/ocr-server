@@ -13,6 +13,9 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import cv2
+import numpy as np
+
 # 将 ocr-server 添加到系统路径，确保可以导入 app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 
@@ -44,6 +47,35 @@ def test_id_front_unwarping_is_document_specific():
     assert service._effective_unwarping("business_license") is False
     assert service._effective_unwarping(None) is False
     print("ID-front unwarping scope test passed!")
+
+
+def test_id_front_quality_retry_helpers():
+    from app.services.ocr_service import OCRService
+
+    service = OCRService()
+    with TemporaryDirectory() as temp_dir:
+        image_path = Path(temp_dir) / "sample.jpg"
+        image = np.full((400, 600, 3), 128, dtype=np.uint8)
+        cv2.rectangle(image, (80, 100), (520, 300), (255, 255, 255), 3)
+        assert cv2.imwrite(str(image_path), image)
+        quality = service._analyze_image_quality(str(image_path))
+        assert quality["available"] is True
+        assert quality["width"] == 600
+        assert quality["height"] == 400
+
+    assert service._is_id_front_retry_candidate("id_front", []) is True
+    assert service._is_id_front_retry_candidate("bank_card", []) is False
+    result = {
+        "texts": ["姓名吴烽", "出生1991年8月15日", "身份证号码411221199108152534"],
+        "scores": [0.9, 0.8, 0.95],
+        "boxes": [[10, 20, 30, 40]],
+        "polys": [[[10, 20], [30, 20], [30, 40], [10, 40]]],
+    }
+    scaled = service._scale_ocr_result(result, 2.0)
+    assert scaled["boxes"] == [[5, 10, 15, 20]]
+    assert scaled["polys"] == [[[5, 10], [15, 10], [15, 20], [5, 20]]]
+    assert service._id_front_result_rank(result)[0] > 0
+    print("ID-front quality retry helper test passed!")
 
 
 def test_document_type_detects_bank_card_from_luhn_number():
@@ -886,6 +918,7 @@ def test_id_back_with_truncated_balinyouqi_authority():
 if __name__ == "__main__":
     test_document_type_hint()
     test_id_front_unwarping_is_document_specific()
+    test_id_front_quality_retry_helpers()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()

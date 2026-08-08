@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import re
 import time
 from collections import Counter
 from pathlib import Path
@@ -21,6 +22,15 @@ def request_ocr_with_retry(url: str, image_path: Path, timeout: float) -> Dict[s
             if attempt < 2:
                 time.sleep(0.5 * (attempt + 1))
     raise last_error
+
+
+def normalize_for_comparison(field: str, value: object, ignore_synthetic_watermark: bool) -> str:
+    text = normalize(field, value)
+    if field == "address" and ignore_synthetic_watermark:
+        # The generated review images contain a known watermark in the address
+        # area. Its separator is OCR-sensitive and is not an address character.
+        text = re.sub(r"[-—–_一]*自制数据集", "", text)
+    return text
 
 
 def render_markdown(report: Dict[str, object]) -> str:
@@ -74,6 +84,11 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--output-json", required=True, type=Path)
     parser.add_argument("--output-markdown", type=Path)
+    parser.add_argument(
+        "--ignore-synthetic-watermark",
+        action="store_true",
+        help="Ignore the known generated-image address watermark when comparing fields",
+    )
     args = parser.parse_args()
 
     from report_id_front_review_accuracy import read_review_rows
@@ -98,8 +113,10 @@ def main() -> int:
             continue
         row_all_correct = True
         for field in FIELD_NAMES:
-            if normalize(field, actual.get(field)) == normalize(
-                field, row.get("final_{}".format(field))
+            if normalize_for_comparison(
+                field, actual.get(field), args.ignore_synthetic_watermark
+            ) == normalize_for_comparison(
+                field, row.get("final_{}".format(field)), args.ignore_synthetic_watermark
             ):
                 correct[field] += 1
             else:
@@ -125,6 +142,9 @@ def main() -> int:
             for field in FIELD_NAMES
         },
         "failures": failures,
+        "comparison_options": {
+            "ignore_synthetic_watermark": args.ignore_synthetic_watermark
+        },
     }
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -25,6 +25,15 @@ from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
 from app.config import OCR_ID_FRONT_MIN_SCORE
+from app.config import OCR_ID_FRONT_QUALITY_RETRY_ENABLED
+from app.config import OCR_ID_FRONT_RETRY_BLUR_THRESHOLD
+from app.config import OCR_ID_FRONT_RETRY_BRIGHT_MEAN
+from app.config import OCR_ID_FRONT_RETRY_CLIPPED_RATIO
+from app.config import OCR_ID_FRONT_RETRY_DARK_MEAN
+from app.config import OCR_ID_FRONT_RETRY_MAX_SIDE
+from app.config import OCR_ID_FRONT_RETRY_MIN_SIDE
+from app.config import OCR_ID_FRONT_RETRY_ON_INCOMPLETE
+from app.config import OCR_ID_FRONT_RETRY_SCALE
 from app.config import OCR_ID_FRONT_USE_DOC_UNWARPING
 from app.config import OCR_MODEL_PROFILE
 from app.config import OCR_MODEL_ENGINE
@@ -217,6 +226,11 @@ class OCRService:
             "inference_backend": OCR_INFERENCE_BACKEND,
             "orientation": self._effective_orientation(auto_orientation),
             "unwarping": effective_unwarping,
+            "id_front_quality_retry": OCR_ID_FRONT_QUALITY_RETRY_ENABLED,
+            "id_front_retry_on_incomplete": OCR_ID_FRONT_RETRY_ON_INCOMPLETE,
+            "id_front_retry_scale": OCR_ID_FRONT_RETRY_SCALE,
+            "id_front_retry_blur": OCR_ID_FRONT_RETRY_BLUR_THRESHOLD,
+            "id_front_retry_min_side": OCR_ID_FRONT_RETRY_MIN_SIDE,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
             "min_score": effective_min_score,
@@ -229,6 +243,182 @@ class OCRService:
         return OCR_USE_DOC_UNWARPING or (
             document_type == "id_front" and OCR_ID_FRONT_USE_DOC_UNWARPING
         )
+
+    @staticmethod
+    def _analyze_image_quality(image_path: str) -> dict[str, Any]:
+        """Calculate cheap image-quality signals before deciding on a retry."""
+        image = cv2.imread(image_path)
+        if image is None:
+            return {
+                "available": False,
+                "retry_risk": False,
+                "reasons": ["image_read_failed"],
+            }
+
+        height, width = image.shape[:2]
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        mean = float(np.mean(gray))
+        blur = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        clipped_ratio = float(
+            np.mean((gray <= 5) | (gray >= 250))
+        )
+        reasons = []
+        if min(height, width) < OCR_ID_FRONT_RETRY_MIN_SIDE:
+            reasons.append("low_resolution")
+        if blur < OCR_ID_FRONT_RETRY_BLUR_THRESHOLD:
+            reasons.append("blur")
+        if mean < OCR_ID_FRONT_RETRY_DARK_MEAN:
+            reasons.append("underexposed")
+        if mean > OCR_ID_FRONT_RETRY_BRIGHT_MEAN:
+            reasons.append("overexposed")
+        if clipped_ratio > OCR_ID_FRONT_RETRY_CLIPPED_RATIO:
+            reasons.append("clipped_highlights_or_shadows")
+
+        return {
+            "available": True,
+            "width": width,
+            "height": height,
+            "min_side": min(height, width),
+            "mean_gray": round(mean, 3),
+            "laplacian_variance": round(blur, 3),
+            "clipped_ratio": round(clipped_ratio, 5),
+            "retry_risk": bool(reasons),
+            "reasons": reasons,
+        }
+
+    @staticmethod
+    def _is_id_front_retry_candidate(
+        document_type: Optional[str], texts: list[str]
+    ) -> bool:
+        if document_type == "id_front":
+            return True
+        if document_type is not None:
+            return False
+        joined = "".join(texts)
+        return (
+            bool(re.search(r"性[别州期]", joined))
+            and "住址" in joined
+            and not ("营业执照" in joined or "统一社会信用代码" in joined)
+        )
+
+    @staticmethod
+    def _id_front_evidence(texts: list[str]) -> dict[str, bool]:
+        joined = "".join(texts)
+        return {
+            "name": "姓名" in joined,
+            "gender": bool(re.search(r"性[别州期].*[男女]", joined)),
+            "nation": bool(re.search(r"[民族闲]族\s*[\u4e00-\u9fff]", joined)),
+            "birthday": bool(
+                re.search(r"\d{4}年\d{1,4}月\d{1,4}日", joined)
+            ),
+            "address": "住址" in joined,
+            "id_number": bool(re.search(r"\d{15,18}[0-9Xx]?", joined)),
+        }
+
+    @classmethod
+    def _id_front_result_rank(cls, result: dict[str, Any]) -> tuple[int, float]:
+        evidence = cls._id_front_evidence(result.get("texts", []))
+        weights = {
+            "name": 2,
+            "gender": 1,
+            "nation": 1,
+            "birthday": 3,
+            "address": 2,
+            "id_number": 3,
+        }
+        completeness = sum(
+            weight for field, weight in weights.items() if evidence[field]
+        )
+        scores = result.get("scores", [])
+        average_score = sum(scores) / len(scores) if scores else 0.0
+        return completeness, average_score
+
+    @staticmethod
+    def _scale_ocr_result(result: dict[str, Any], scale: float) -> dict[str, Any]:
+        if scale <= 1.0:
+            return result
+
+        scaled = dict(result)
+        scaled["boxes"] = [
+            [int(round(float(value) / scale)) for value in box]
+            for box in result.get("boxes", [])
+        ]
+        scaled["polys"] = [
+            [
+                [int(round(float(point[0]) / scale)), int(round(float(point[1]) / scale))]
+                for point in poly
+            ]
+            for poly in result.get("polys", [])
+        ]
+        return scaled
+
+    def _create_id_front_retry_image(
+        self,
+        image_path: str,
+        output_dir: Optional[Union[str, Path]],
+    ) -> tuple[str, float, Optional[str]]:
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Unable to read image for retry: {image_path}")
+
+        height, width = image.shape[:2]
+        scale = OCR_ID_FRONT_RETRY_SCALE
+        if max(height, width) * scale > OCR_ID_FRONT_RETRY_MAX_SIDE:
+            scale = OCR_ID_FRONT_RETRY_MAX_SIDE / max(height, width)
+        scale = max(1.0, scale)
+        if scale > 1.0:
+            image = cv2.resize(
+                image,
+                None,
+                fx=scale,
+                fy=scale,
+                interpolation=cv2.INTER_CUBIC,
+            )
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        softened = cv2.GaussianBlur(enhanced, (0, 0), 1.0)
+        enhanced = cv2.addWeighted(enhanced, 1.25, softened, -0.25, 0)
+
+        temporary_path = None
+        if output_dir is not None and OCR_SAVE_PREPROCESSED_IMAGE:
+            retry_path = Path(output_dir) / "preprocessed_id_front_retry.jpg"
+        else:
+            descriptor, temporary_path = tempfile.mkstemp(suffix=".jpg")
+            os.close(descriptor)
+            retry_path = Path(temporary_path)
+
+        if not cv2.imwrite(
+            str(retry_path),
+            enhanced,
+            [cv2.IMWRITE_JPEG_QUALITY, OCR_PREPROCESSED_JPEG_QUALITY],
+        ):
+            if temporary_path:
+                os.remove(temporary_path)
+            raise OSError(f"Failed to save retry image: {retry_path}")
+        return str(retry_path), scale, temporary_path
+
+    def _schedule_quality_info(
+        self,
+        quality_info: dict[str, Any],
+        output_dir: Optional[Union[str, Path]],
+    ) -> None:
+        if output_dir is None:
+            return
+        output_path = Path(output_dir) / "quality_info.json"
+
+        def save() -> None:
+            try:
+                with output_path.open("w", encoding="utf-8") as file:
+                    json.dump(quality_info, file, ensure_ascii=False, indent=2)
+            except OSError as exc:
+                logger.warning("Failed to save quality info: {}", exc)
+
+        try:
+            self._artifact_executor.submit(save)
+        except RuntimeError as exc:
+            logger.warning("Failed to schedule quality info save: {}", exc)
 
     def initialize(self):
         if self.pipeline is not None:
@@ -783,6 +973,14 @@ class OCRService:
         effective_min_score = min_score
         if document_type == "id_front":
             effective_min_score = min(min_score, OCR_ID_FRONT_MIN_SCORE)
+        quality_info = {
+            "document_type": document_type or "auto",
+            "retry_enabled": bool(
+                OCR_ID_FRONT_QUALITY_RETRY_ENABLED
+                and document_type == "id_front"
+            ),
+        }
+        retry_temp_path = None
         try:
             if self.pipeline_uses_fine_tuned_detector:
                 temp_path = self.preprocess_image(image_path, output_dir=output_dir)
@@ -860,7 +1058,138 @@ class OCRService:
                     document_type,
                 )
 
-                doc_preprocessor_res = result.get("doc_preprocessor_res") or {}
+                first_result = {
+                    "texts": texts,
+                    "scores": scores,
+                    "boxes": boxes,
+                    "polys": polys,
+                    "angle": doc_preprocessor_res.get("angle", 0)
+                    if (doc_preprocessor_res := result.get("doc_preprocessor_res") or {})
+                    else 0,
+                }
+
+                # 低质量身份证正面只做一次条件重试；正常图片和其它证件不增加推理。
+                retry_candidate = self._is_id_front_retry_candidate(
+                    document_type, texts
+                )
+                evidence = self._id_front_evidence(texts) if retry_candidate else {}
+                incomplete = retry_candidate and not all(evidence.values())
+                if retry_candidate and "available" not in quality_info:
+                    quality_info.update(self._analyze_image_quality(image_path))
+                quality_info["retry_enabled"] = bool(
+                    OCR_ID_FRONT_QUALITY_RETRY_ENABLED and retry_candidate
+                )
+                should_retry = bool(
+                    OCR_ID_FRONT_QUALITY_RETRY_ENABLED
+                    and retry_candidate
+                    and not effective_unwarping
+                    and (
+                        quality_info.get("retry_risk", False)
+                        or (
+                            OCR_ID_FRONT_RETRY_ON_INCOMPLETE
+                            and incomplete
+                        )
+                    )
+                )
+                quality_info.update(
+                    {
+                        "first_pass_evidence": evidence,
+                        "first_pass_incomplete": incomplete,
+                        "retry_triggered": should_retry,
+                    }
+                )
+
+                selected_result = first_result
+                if should_retry:
+                    try:
+                        retry_path, retry_scale, retry_temp_path = (
+                            self._create_id_front_retry_image(image_path, output_dir)
+                        )
+                        retry_started_at = time.perf_counter()
+                        retry_options = {
+                            "text_det_limit_side_len": detection_side_limit,
+                            "text_det_limit_type": "max",
+                        }
+                        if not self.pipeline_uses_fine_tuned_detector:
+                            retry_options.update(
+                                {
+                                    "use_doc_orientation_classify": effective_orientation,
+                                    "use_doc_unwarping": False,
+                                }
+                            )
+
+                        retry_result = None
+                        for retry_prediction in self.pipeline.predict(
+                            retry_path, **retry_options
+                        ):
+                            retry_texts = []
+                            retry_scores = []
+                            retry_boxes = []
+                            retry_polys = []
+                            for index, score in enumerate(
+                                retry_prediction["rec_scores"]
+                            ):
+                                if score >= effective_min_score:
+                                    retry_texts.append(
+                                        retry_prediction["rec_texts"][index]
+                                    )
+                                    retry_scores.append(float(score))
+                                    retry_boxes.append(
+                                        retry_prediction["rec_boxes"][index].tolist()
+                                    )
+                                    retry_polys.append(
+                                        retry_prediction["dt_polys"][index].tolist()
+                                    )
+                            retry_texts = self.postprocess_texts(retry_texts)
+                            retry_result = {
+                                "texts": retry_texts,
+                                "scores": retry_scores,
+                                "boxes": retry_boxes,
+                                "polys": retry_polys,
+                                "angle": (
+                                    retry_prediction.get("doc_preprocessor_res") or {}
+                                ).get("angle", 0),
+                            }
+
+                            self._recover_id_front_nation(
+                                retry_path,
+                                retry_texts,
+                                retry_scores,
+                                retry_boxes,
+                                retry_polys,
+                                output_dir,
+                                request_logger,
+                                document_type,
+                            )
+
+                        retry_ms = (time.perf_counter() - retry_started_at) * 1000
+                        quality_info["retry_duration_ms"] = round(retry_ms, 2)
+                        quality_info["retry_scale"] = round(retry_scale, 3)
+                        if retry_result is not None:
+                            first_rank = self._id_front_result_rank(first_result)
+                            retry_rank = self._id_front_result_rank(retry_result)
+                            quality_info["first_pass_rank"] = first_rank
+                            quality_info["retry_rank"] = retry_rank
+                            if retry_rank > first_rank:
+                                selected_result = self._scale_ocr_result(
+                                    retry_result, retry_scale
+                                )
+                                quality_info["selected_pass"] = "retry"
+                            else:
+                                quality_info["selected_pass"] = "first"
+                        request_logger.info(
+                            "ID front quality retry completed: selected={}, duration_ms={:.2f}",
+                            quality_info.get("selected_pass", "first"),
+                            retry_ms,
+                        )
+                    except Exception as exc:
+                        quality_info["retry_error"] = str(exc)
+                        request_logger.warning(
+                            "ID front quality retry failed; keeping first result: {}",
+                            exc,
+                        )
+
+                self._schedule_quality_info(quality_info, output_dir)
                 if not self.pipeline_uses_fine_tuned_detector and (
                     effective_orientation or effective_unwarping
                 ):
@@ -868,13 +1197,7 @@ class OCRService:
                         doc_preprocessor_res, output_dir, request_logger
                     )
 
-                return {
-                    "texts": texts,
-                    "scores": scores,
-                    "boxes": boxes,
-                    "polys": polys,
-                    "angle": doc_preprocessor_res.get("angle", 0)
-                }
+                return selected_result
 
             return {
                 "texts": [],
@@ -894,6 +1217,11 @@ class OCRService:
                     os.remove(temp_path)
                 except Exception as e:
                     logger.warning(f"清理临时文件失败: {e}")
+            if retry_temp_path and os.path.exists(retry_temp_path):
+                try:
+                    os.remove(retry_temp_path)
+                except OSError as exc:
+                    logger.warning("Failed to clean retry image: {}", exc)
 
 
     def recognize_with_layout(self, image_path: str) -> list[dict[str, Any]]:
