@@ -310,7 +310,6 @@ class BankCardParser:
             "card_type_confidence": 0.0,
             "valid_date": "",
             "holder_name": "",
-            "bank_card_type": 0,
         }
 
         candidate = self._select_card_candidate(layout)
@@ -333,8 +332,4 @@ class BankCardParser:
         data["card_type_confidence"] = round(card_type_confidence, 4)
         data["valid_date"] = self._extract_valid_date(layout, card_line_ids)
         data["holder_name"] = self._extract_holder_name(layout, card_line_ids)
-        data["bank_card_type"] = {
-            CardType.DEBIT: 1,
-            CardType.CREDIT: 2,
-        }.get(card_type, 0)
         return data
