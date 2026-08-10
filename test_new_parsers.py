@@ -661,6 +661,52 @@ def test_id_front_birthday_fallback_from_id_number():
     print("ID Front Birthday Fallback Test Passed!")
 
 
+def test_id_front_birthday_id_number_overrides_conflict():
+    print("\n--- Testing ID Front Birthday ID Number Conflict ---")
+    lines = [
+        OCRLine(
+            text="\u51fa\u751f1991\u5e748\u670815\u65e5",
+            left=30,
+            top=20,
+            right=260,
+            bottom=50,
+            score=0.99,
+        ),
+        OCRLine(
+            text="110000199611240019",
+            left=30,
+            top=80,
+            right=330,
+            bottom=110,
+            score=0.99,
+        ),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="id_front")
+    assert result["birthday"] == "1996\u5e7411\u670824\u65e5", result
+    print("ID Front Birthday Conflict Test Passed!")
+
+
+def test_id_front_field_roi_helpers():
+    print("\n--- Testing ID Front Field ROI Helpers ---")
+    from app.services.ocr_service import OCRService
+
+    name = "\u59d3\u540d"
+    birthday = "\u51fa\u751f"
+    service = OCRService()
+    texts = [name, birthday]
+    boxes = [[20, 30, 70, 55], [20, 80, 70, 105]]
+    assert service._id_front_field_anchor_index(texts, boxes, "name") == 0
+    assert service._id_front_field_anchor_index(texts, boxes, "birthday") == 1
+    assert service._id_front_field_candidate("name", name + "\u5434\u70fd") == "\u5434\u70fd"
+    assert (
+        service._id_front_field_candidate("birthday", birthday + "1991\u5e748\u670815\u65e5")
+        == "1991\u5e748\u670815\u65e5"
+    )
+    assert service._map_id_front_crop_box([30, 60, 150, 120], 100, 200, 3.0) == [110, 220, 150, 240]
+    assert service._id_front_field_crop_bounds("name", boxes[0], 500, 300) is not None
+    print("ID Front Field ROI Helper Test Passed!")
+
+
 def test_id_front_with_noisy_birthday_month():
     print("\n--- Testing ID Front With Noisy Birthday Month ---")
     lines = [
@@ -929,6 +975,8 @@ if __name__ == "__main__":
     test_id_front_with_split_birthday_and_admin_area_typo()
     test_id_front_uses_original_ocr_order_for_split_birthday()
     test_id_front_birthday_fallback_from_id_number()
+    test_id_front_birthday_id_number_overrides_conflict()
+    test_id_front_field_roi_helpers()
     test_id_front_with_noisy_birthday_month()
     test_id_front_with_misrecognized_name_label()
     test_id_front_with_missing_gender_and_nation_text()

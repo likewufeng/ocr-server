@@ -25,6 +25,8 @@ from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
 from app.config import OCR_ID_FRONT_MIN_SCORE
+from app.config import OCR_ID_FRONT_FIELD_ROI_MIN_SCORE
+from app.config import OCR_ID_FRONT_FIELD_ROI_SCALE
 from app.config import OCR_ID_FRONT_QUALITY_RETRY_ENABLED
 from app.config import OCR_ID_FRONT_RETRY_BLUR_THRESHOLD
 from app.config import OCR_ID_FRONT_RETRY_BRIGHT_MEAN
@@ -45,6 +47,7 @@ from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
 from app.config import OCR_USE_DOC_ORIENTATION
 from app.config import OCR_USE_DOC_UNWARPING
 from app.config import OCR_USE_FINE_TUNED_MODEL
+from app.parsers.id_front import IDFrontParser
 
 # 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
@@ -503,6 +506,12 @@ class OCRService:
     def submit_recognize(self, image_path: str, **kwargs):
         """将推理提交到唯一的固定线程，避免 predictor 跨线程复用。"""
         return self._inference_executor.submit(self.recognize, image_path, **kwargs)
+
+    def submit_recover_id_front_fields(self, image_path: str, **kwargs):
+        """Run conditional ID-front field recovery on the predictor-owning thread."""
+        return self._inference_executor.submit(
+            self.recover_id_front_fields, image_path, **kwargs
+        )
 
     def submit_recognize_with_layout(self, image_path: str):
         """将布局分析提交到同一个推理线程，避免阻塞事件循环。"""
@@ -972,6 +981,229 @@ class OCRService:
                     os.remove(temporary_crop)
                 except OSError:
                     pass
+
+    @staticmethod
+    def _id_front_field_anchor_index(
+        texts: list[str], boxes: list[list], field: str
+    ) -> Optional[int]:
+        """Find the first reliable label box for a locally recoverable field."""
+        for index, (text, box) in enumerate(zip(texts, boxes)):
+            if not isinstance(box, (list, tuple)) or len(box) < 4:
+                continue
+            compact = re.sub(r"\s+", "", text or "")
+            if field == "name":
+                if IDFrontParser._NAME_LABEL_PATTERN.match(compact) or "\u59d3\u540d" in compact:
+                    return index
+            elif field == "birthday" and "\u51fa\u751f" in compact:
+                return index
+        return None
+
+    @staticmethod
+    def _id_front_field_crop_bounds(
+        field: str,
+        anchor_box: list,
+        image_width: int,
+        image_height: int,
+    ) -> Optional[tuple[int, int, int, int]]:
+        """Return a conservative crop around the value to the right of its label."""
+        left, top, right, bottom = (int(value) for value in anchor_box[:4])
+        width = max(1, right - left)
+        height = max(1, bottom - top)
+
+        if field == "name":
+            crop_left = max(0, left - int(height * 0.3))
+            crop_right = min(image_width, right + max(180, int(width * 3.5)))
+            crop_top = max(0, top - int(height * 0.9))
+            crop_bottom = min(image_height, bottom + int(height * 0.9))
+        elif field == "birthday":
+            crop_left = max(0, left - int(height * 0.4))
+            crop_right = min(image_width, right + max(260, int(width * 5.0)))
+            crop_top = max(0, top - int(height * 1.1))
+            crop_bottom = min(image_height, bottom + int(height * 1.1))
+        else:
+            return None
+
+        if crop_right <= crop_left or crop_bottom <= crop_top:
+            return None
+        return crop_left, crop_top, crop_right, crop_bottom
+
+    @staticmethod
+    def _map_id_front_crop_box(
+        crop_box: list, crop_left: int, crop_top: int, scale: float
+    ) -> list[int]:
+        """Map a recognizer box from the enlarged crop back to source pixels."""
+        return [
+            int(crop_left + float(value) / scale)
+            if position % 2 == 0
+            else int(crop_top + float(value) / scale)
+            for position, value in enumerate(crop_box[:4])
+        ]
+
+    @staticmethod
+    def _id_front_field_candidate(field: str, text: str) -> str:
+        """Extract only a valid name or date from one crop recognition result."""
+        compact = re.sub(r"\s+", "", text or "")
+        if field == "name":
+            label_match = IDFrontParser._NAME_LABEL_PATTERN.match(compact)
+            if label_match:
+                compact = compact[label_match.end():]
+            return IDFrontParser._clean_person_name(compact)
+        if field == "birthday":
+            return IDFrontParser._extract_birthday(compact)
+        return ""
+
+    def _recover_id_front_field(
+        self,
+        image: np.ndarray,
+        field: str,
+        anchor_box: list,
+        output_dir: Optional[Union[str, Path]],
+        request_logger,
+    ) -> Optional[dict[str, Any]]:
+        """Recognize one missing ID-front field from a small enlarged source crop."""
+        image_height, image_width = image.shape[:2]
+        bounds = self._id_front_field_crop_bounds(
+            field, anchor_box, image_width, image_height
+        )
+        if bounds is None:
+            return None
+        crop_left, crop_top, crop_right, crop_bottom = bounds
+        crop = image[crop_top:crop_bottom, crop_left:crop_right]
+        enlarged_crop = cv2.resize(
+            crop,
+            None,
+            fx=OCR_ID_FRONT_FIELD_ROI_SCALE,
+            fy=OCR_ID_FRONT_FIELD_ROI_SCALE,
+            interpolation=cv2.INTER_CUBIC,
+        )
+
+        temporary_crop = None
+        artifact_name = "id_front_{}_roi.jpg".format(field)
+        if output_dir is not None:
+            crop_path = Path(output_dir) / artifact_name
+        else:
+            descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+            os.close(descriptor)
+            crop_path = Path(temporary_crop)
+
+        try:
+            if not cv2.imwrite(str(crop_path), enlarged_crop):
+                request_logger.warning("ID-front field ROI skipped: failed to save crop")
+                return None
+
+            predict_options = {
+                "text_det_limit_side_len": 960,
+                "text_det_limit_type": "max",
+            }
+            if not self.pipeline_uses_fine_tuned_detector:
+                predict_options.update(
+                    {
+                        "use_doc_orientation_classify": False,
+                        "use_doc_unwarping": False,
+                    }
+                )
+
+            for result in self.pipeline.predict(str(crop_path), **predict_options):
+                for index, score in enumerate(result["rec_scores"]):
+                    if float(score) < OCR_ID_FRONT_FIELD_ROI_MIN_SCORE:
+                        continue
+                    recognized_text = self.postprocess_texts(
+                        [result["rec_texts"][index]]
+                    )[0]
+                    candidate = self._id_front_field_candidate(field, recognized_text)
+                    if not candidate:
+                        continue
+                    mapped_box = self._map_id_front_crop_box(
+                        result["rec_boxes"][index].tolist(),
+                        crop_left,
+                        crop_top,
+                        OCR_ID_FRONT_FIELD_ROI_SCALE,
+                    )
+                    return {
+                        "field": field,
+                        "text": candidate,
+                        "score": float(score),
+                        "box": mapped_box,
+                        "artifact": artifact_name if output_dir is not None else None,
+                    }
+        except Exception as exc:
+            request_logger.warning("ID-front field ROI OCR failed: field={}, error={}", field, exc)
+        finally:
+            if temporary_crop:
+                try:
+                    os.remove(temporary_crop)
+                except OSError:
+                    pass
+        return None
+
+    def recover_id_front_fields(
+        self,
+        image_path: str,
+        ocr_result: dict[str, Any],
+        document: dict[str, Any],
+        output_dir: Optional[Union[str, Path]] = None,
+        request_logger=None,
+    ) -> dict[str, Any]:
+        """Append validated local OCR evidence only for missing name/birthday fields."""
+        metadata = {
+            "attempted_fields": [],
+            "recovered_fields": [],
+            "artifacts": [],
+        }
+        if document.get("type") != "id_front":
+            return metadata
+
+        missing_fields = [
+            field for field in ("name", "birthday") if not document.get(field)
+        ]
+        if not missing_fields:
+            return metadata
+
+        texts = ocr_result.get("texts")
+        scores = ocr_result.get("scores")
+        boxes = ocr_result.get("boxes")
+        polys = ocr_result.get("polys")
+        if not all(isinstance(value, list) for value in (texts, scores, boxes, polys)):
+            return metadata
+
+        image = cv2.imread(image_path)
+        if image is None:
+            request_logger.warning("ID-front field ROI skipped: failed to load image")
+            return metadata
+
+        for field in missing_fields:
+            anchor_index = self._id_front_field_anchor_index(texts, boxes, field)
+            if anchor_index is None:
+                continue
+            metadata["attempted_fields"].append(field)
+            recovered = self._recover_id_front_field(
+                image, field, boxes[anchor_index], output_dir, request_logger
+            )
+            if recovered is None:
+                continue
+
+            mapped_box = recovered["box"]
+            texts.append(recovered["text"])
+            scores.append(recovered["score"])
+            boxes.append(mapped_box)
+            polys.append(
+                [
+                    [mapped_box[0], mapped_box[1]],
+                    [mapped_box[2], mapped_box[1]],
+                    [mapped_box[2], mapped_box[3]],
+                    [mapped_box[0], mapped_box[3]],
+                ]
+            )
+            metadata["recovered_fields"].append(field)
+            if recovered["artifact"]:
+                metadata["artifacts"].append(recovered["artifact"])
+            request_logger.info(
+                "ID-front field recovered from ROI: field={}, score={:.3f}",
+                field,
+                recovered["score"],
+            )
+
+        return metadata
 
     def recognize(
         self,

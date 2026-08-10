@@ -155,6 +155,18 @@ OCR_ID_FRONT_USE_DOC_UNWARPING = _env_bool(
     "OCR_ID_FRONT_USE_DOC_UNWARPING", False
 )
 
+# 仅在首轮结构化解析缺少姓名或生日时，对对应的小区域做一次放大补识别。
+# 正常身份证不会触发，不依赖整图质量阈值。
+OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED = _env_bool(
+    "OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED", False
+)
+OCR_ID_FRONT_FIELD_ROI_SCALE = min(
+    4.0, max(1.0, float(os.getenv("OCR_ID_FRONT_FIELD_ROI_SCALE", "3.0")))
+)
+OCR_ID_FRONT_FIELD_ROI_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("OCR_ID_FRONT_FIELD_ROI_MIN_SCORE", "0.5")))
+)
+
 # 身份证正面低质量图片的条件重试。首轮结果完整时不会触发第二次推理；
 # 重试只使用温和的放大、CLAHE 和锐化，不改变生产默认的 UVDoc 行为。
 OCR_ID_FRONT_QUALITY_RETRY_ENABLED = _env_bool(
@@ -201,7 +213,7 @@ OCR_PREPROCESSED_JPEG_QUALITY = min(
 OCR_CACHE_ENABLED = _env_bool("OCR_CACHE_ENABLED", True)
 
 # 模型或预处理算法发生不兼容变化时递增版本号，可立即隔离旧缓存。
-OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "6").strip()
+OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "7").strip()
 
 
 # ---------- HTTP OCR 并发 ----------

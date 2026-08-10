@@ -10,7 +10,12 @@ from typing import Literal, Optional
 from fastapi import APIRouter, File, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from app.config import OCR_MAX_CONCURRENT_REQUESTS, OUTPUT_DIR, UPLOAD_DIR
+from app.config import (
+    OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED,
+    OCR_MAX_CONCURRENT_REQUESTS,
+    OUTPUT_DIR,
+    UPLOAD_DIR,
+)
 from app.parsers.parser import OCRParser
 from app.schemas.response import ApiResponse
 from app.services.ocr_service import ocr_service
@@ -214,12 +219,35 @@ async def ocr(
         )
         response.headers["X-OCR-Cache"] = "HIT" if cache_hit else "MISS"
         cache_status = "hit" if cache_hit else "miss"
+        layout = build_layout(ocr_result)
+        document = parser.parse(layout, document_type=document_type)
+        field_roi_recovery = None
+        if (
+            OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED
+            and document.get("type") == "id_front"
+            and (not document.get("name") or not document.get("birthday"))
+        ):
+            field_roi_recovery = await asyncio.wrap_future(
+                ocr_service.submit_recover_id_front_fields(
+                    str(path),
+                    ocr_result=ocr_result,
+                    document=document,
+                    output_dir=output_dir,
+                    request_logger=request_logger,
+                )
+            )
+            if field_roi_recovery["recovered_fields"]:
+                layout = build_layout(ocr_result)
+                document = parser.parse(layout, document_type=document_type)
+            await run_in_threadpool(
+                _save_json,
+                output_dir / "field_roi_recovery.json",
+                field_roi_recovery,
+            )
+
         await run_in_threadpool(
             _save_json, output_dir / "ocr_result.json", ocr_result
         )
-
-        layout = build_layout(ocr_result)
-        document = parser.parse(layout, document_type=document_type)
         await run_in_threadpool(
             _save_json, output_dir / "parsed_result.json", document
         )

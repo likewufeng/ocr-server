@@ -1,0 +1,118 @@
+{
+  "dataset": "D:\\web\\self\\study\\ocr-datasets\\id-front\\v1_20260807\\annotation_template.csv",
+  "images_dir": "D:\\web\\self\\study\\ocr-datasets\\id-front\\v1_20260807\\images",
+  "selected_samples": 95,
+  "selection": "reviewed corrected rows",
+  "targets": [
+    {
+      "name": "roi_off",
+      "samples": 95,
+      "successful_requests": 95,
+      "failed_requests": 0,
+      "all_fields_exact_correct": 82,
+      "all_fields_exact_rate": 86.32,
+      "field_accuracy": {
+        "name": {
+          "correct": 85,
+          "total": 95,
+          "accuracy_percent": 89.47
+        },
+        "gender": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "nation": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "birthday": {
+          "correct": 92,
+          "total": 95,
+          "accuracy_percent": 96.84
+        },
+        "address": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "id_number": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        }
+      },
+      "latency_seconds": {
+        "average": 0.1544,
+        "p50": 0.1493,
+        "p95": 0.1934,
+        "max": 0.2615
+      },
+      "roi_attempted": {
+        "name": 0,
+        "birthday": 0
+      },
+      "roi_recovered": {
+        "name": 0,
+        "birthday": 0
+      },
+      "failures": []
+    },
+    {
+      "name": "roi_on",
+      "samples": 95,
+      "successful_requests": 95,
+      "failed_requests": 0,
+      "all_fields_exact_correct": 82,
+      "all_fields_exact_rate": 86.32,
+      "field_accuracy": {
+        "name": {
+          "correct": 85,
+          "total": 95,
+          "accuracy_percent": 89.47
+        },
+        "gender": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "nation": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "birthday": {
+          "correct": 92,
+          "total": 95,
+          "accuracy_percent": 96.84
+        },
+        "address": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        },
+        "id_number": {
+          "correct": 95,
+          "total": 95,
+          "accuracy_percent": 100.0
+        }
+      },
+      "latency_seconds": {
+        "average": 0.1796,
+        "p50": 0.1718,
+        "p95": 0.2483,
+        "max": 0.4874
+      },
+      "roi_attempted": {
+        "name": 5,
+        "birthday": 0
+      },
+      "roi_recovered": {
+        "name": 2,
+        "birthday": 0
+      },
+      "failures": []
+    }
+  ]
+}

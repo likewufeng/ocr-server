@@ -15,6 +15,8 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 class IDFrontParser:
+    _ID_NUMBER_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+    _ID_NUMBER_CHECK_CODES = "10X98765432"
     _NAME_LABEL_PATTERN = re.compile(r"^(?:姓名|[鲜娃牲姪性]名|财省)[:：]?")
     _GENDER_LABEL_PATTERN = re.compile(r"性[别州期]")
     _NATION_LABEL_PATTERN = re.compile(r"[民闲]族")
@@ -65,6 +67,24 @@ class IDFrontParser:
                 return f"{year}年{month}月{day}日"
 
         return ""
+
+    @classmethod
+    def _birthday_from_valid_id_number(cls, id_number: str) -> str:
+        """Return the canonical birthday only when the ID number passes checksum."""
+        normalized = (id_number or "").upper()
+        if not re.fullmatch(r"\d{17}[0-9X]", normalized):
+            return ""
+        checksum = sum(
+            int(digit) * weight
+            for digit, weight in zip(normalized[:17], cls._ID_NUMBER_WEIGHTS)
+        )
+        if normalized[-1] != cls._ID_NUMBER_CHECK_CODES[checksum % 11]:
+            return ""
+        try:
+            birth_date = datetime.strptime(normalized[6:14], "%Y%m%d")
+        except ValueError:
+            return ""
+        return f"{birth_date.year}\u5e74{birth_date.month}\u6708{birth_date.day}\u65e5"
 
     @classmethod
     def _find_name_label_line(cls, layout: Layout, gender_line=None):
@@ -361,8 +381,14 @@ class IDFrontParser:
             if gender_digit.isdigit():
                 data["gender"] = "男" if int(gender_digit) % 2 else "女"
 
+        id_number_birthday = self._birthday_from_valid_id_number(data["id_number"])
+        if id_number_birthday:
+            data["birthday"] = id_number_birthday
+
         # 平台/移动模型可能把“出生”和日期拆框，甚至漏掉日期框。
         # 身份证号码中的出生日期是结构化字段，可作为可靠兜底。
+        # A valid 18-digit ID number is authoritative for the birth date.  OCR
+        # dates can contain one extra digit or a visually similar character.
         if not data["birthday"] and data["id_number"]:
             birth_digits = data["id_number"][6:14]
             try:
