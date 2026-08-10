@@ -858,15 +858,31 @@ class BusinessParser:
 
             boundary_top = find_boundary_top(
                 addr_anchor.top,
-                keywords=["经营范围", "登记机关", "市场监督", "国家企业信用信息公示系统网址", "国家市场监督管理总局监制"],
+                keywords=[
+                    "经营范围", "登记机关", "市场监督",
+                    "法定代表人", "负责人", "注册资本", "注册资金",
+                    "成立日期", "注册日期", "设立日期", "类型",
+                    "国家企业信用信息公示系统网址", "国家市场监督管理总局监制",
+                ],
                 col_left=addr_col_left,
                 col_right=addr_col_right,
             )
 
             stop_keywords = [
                 "经营范围", "登记机关", "市场监督",
+                "法定代表人", "负责人", "注册资本", "注册资金",
+                "法定代表", "注册资", "成立日", "注册日", "设立日", "类型",
                 "国家企业信用信息公示系统网址", "http", "https",
             ]
+            stop_values = [
+                value for value in (
+                    data.get("type_name"),
+                    data.get("legal_person"),
+                    data.get("capital"),
+                    data.get("establish_date"),
+                ) if value
+            ]
+            scope_start_keywords = ("一般项目", "许可项目", "许可项", "经营项目")
 
             prev = addr_anchor
             seen = {id(addr_anchor)}
@@ -892,6 +908,9 @@ class BusinessParser:
                 if any(kw in text for kw in stop_keywords):
                     break
 
+                if any(kw in text for kw in scope_start_keywords):
+                    break
+
                 if is_date_text(text) or re.fullmatch(r"[\d年月日\s]+", text):
                     break
 
@@ -900,6 +919,8 @@ class BusinessParser:
 
                 cleaned = clean_addr_text(text)
                 if cleaned:
+                    if any(value in cleaned for value in stop_values):
+                        break
                     if cleaned in seen_texts:
                         continue
                     addr_parts.append(cleaned)
@@ -953,14 +974,16 @@ class BusinessParser:
             scope_candidates = []
             min_top = scope_line.top - row_tol(scope_line, 0.8)
             min_left = scope_line.right - base_h * 2
-            max_right = min(doc_width, int(doc_width * 0.68), scope_line.right + base_h * 22)
+            # 允许经营范围文本延伸至整行右侧，但其起点应仍在标签的同一内容栏。
+            # 这样可排除同一高度、另一栏的地址续行或其他字段。
+            max_left = min(doc_width, int(doc_width * 0.68), scope_line.right + base_h * 22)
 
             for block in all_lines:
                 if id(block) in seen_ids:
                     continue
                 if block.top < min_top or block.top >= boundary_top:
                     continue
-                if block.right <= min_left or block.left >= max_right:
+                if block.right <= min_left or block.left >= max_left:
                     continue
 
                 text = (block.text or "").strip()
@@ -971,6 +994,11 @@ class BusinessParser:
                     continue
 
                 if any(kw in text for kw in stop_keywords):
+                    continue
+
+                # 地址续行可能与“经营范围”标签同高，且位于另一栏；这类
+                # 文本已经被地址解析器收集，不应混入经营范围。
+                if text and text in data.get("address", ""):
                     continue
 
                 if re.fullmatch(r"\d{1,4}", text):

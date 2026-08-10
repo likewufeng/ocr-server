@@ -477,6 +477,7 @@ def test_business_license_with_missing_name_prefix():
     assert result["type"] == "business_license"
     assert result["name"] == "河南省吉米特信息技术有限公司"
     assert result["credit_code"] == "91410100MACER7B67P"
+    assert result["business_scope"] == "一般项目：信息系统集成服务"
     print("Business License Missing Name Prefix Test Passed!")
 
 def test_business_license_with_missing_type_label_character():
@@ -563,6 +564,56 @@ def test_business_license_scope_order_with_tall_label():
     assert "网络设备销售" in result["business_scope"]
     assert "信息安全设备销售" in result["business_scope"]
     print("Business License Scope Order Test Passed!")
+
+
+def test_business_license_address_stops_before_following_fields():
+    print("\n--- Testing Business License Address Boundary ---")
+    lines = [
+        OCRLine(text="住所", left=620, top=100, right=690, bottom=125, score=0.99),
+        OCRLine(text="河南省郑州市测试区测试路1号", left=710, top=100, right=1060, bottom=125, score=0.99),
+        OCRLine(text="测试大厦10层", left=710, top=135, right=890, bottom=160, score=0.99),
+        OCRLine(text="法定代表人", left=620, top=170, right=740, bottom=195, score=0.99),
+        OCRLine(text="测试人员", left=760, top=170, right=850, bottom=195, score=0.99),
+        OCRLine(text="注册资本", left=620, top=205, right=715, bottom=230, score=0.99),
+        OCRLine(text="壹佰万元整", left=730, top=205, right=850, bottom=230, score=0.99),
+        OCRLine(text="成立日期", left=620, top=240, right=715, bottom=265, score=0.99),
+        OCRLine(text="2023年04月21日", left=730, top=240, right=890, bottom=265, score=0.99),
+        OCRLine(text="经营范围", left=50, top=275, right=160, bottom=300, score=0.99),
+        OCRLine(text="软件开发", left=180, top=275, right=300, bottom=300, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "河南省郑州市测试区测试路1号测试大厦10层"
+    assert "测试人员" not in result["address"]
+    assert "壹佰万元整" not in result["address"]
+    print("Business License Address Boundary Test Passed!")
+
+
+def test_business_license_address_stops_before_truncated_label_value():
+    print("\n--- Testing Business License Address Truncated Boundary ---")
+    lines = [
+        OCRLine(text="住所", left=620, top=100, right=690, bottom=125, score=0.99),
+        OCRLine(text="河南省郑州市测试区测试路1号", left=710, top=100, right=1060, bottom=125, score=0.99),
+        OCRLine(text="法定代表", left=620, top=140, right=720, bottom=165, score=0.99),
+        OCRLine(text="测试人员", left=730, top=140, right=820, bottom=165, score=0.99),
+        OCRLine(text="一般项目：软件开发", left=180, top=180, right=400, bottom=205, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "河南省郑州市测试区测试路1号"
+    assert "测试人员" not in result["address"]
+    print("Business License Address Truncated Boundary Test Passed!")
+
+
+def test_business_license_scope_keeps_wide_lines():
+    print("\n--- Testing Business License Wide Scope Line ---")
+    lines = [
+        OCRLine(text="经营范围", left=50, top=100, right=150, bottom=125, score=0.99),
+        OCRLine(text="一般项目：软件开发、信息系统集成服务", left=170, top=100, right=700, bottom=125, score=0.99),
+        OCRLine(text="网络与信息安全软件开发", left=170, top=135, right=600, bottom=160, score=0.99),
+        OCRLine(text="登记机关", left=50, top=220, right=150, bottom=245, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["business_scope"] == "一般项目：软件开发、信息系统集成服务网络与信息安全软件开发"
+    print("Business License Wide Scope Line Test Passed!")
 
 def test_id_front_with_split_id_label():
     print("\n--- Testing ID Front with Split ID Label ---")
@@ -1051,3 +1102,6 @@ if __name__ == "__main__":
     test_business_license_with_missing_type_label_character()
     test_business_license_with_split_missing_type_label_character()
     test_business_license_scope_order_with_tall_label()
+    test_business_license_address_stops_before_following_fields()
+    test_business_license_address_stops_before_truncated_label_value()
+    test_business_license_scope_keeps_wide_lines()
