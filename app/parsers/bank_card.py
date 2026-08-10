@@ -252,7 +252,13 @@ class BankCardParser:
             normalized,
         )
         if not match:
-            return ""
+            # OCR output must preserve a visibly printed MM/YY value even
+            # when it is not a calendar-valid date (for example, anonymized
+            # test cards using 88/88). Business validity is a caller concern.
+            raw_match = re.search(r"(?<!\d)(\d{2})/(\d{2,4})(?!\d)", normalized)
+            if not raw_match:
+                return ""
+            return f"{raw_match.group(1)}/{raw_match.group(2)[-2:]}"
         year = match.group(2)
         return f"{match.group(1)}/{year[-2:]}"
 

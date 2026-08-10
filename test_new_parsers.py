@@ -311,6 +311,17 @@ def test_bank_card_valid_date_accepts_year_month_format():
     print("Bank Card Year Month Valid Date Test Passed!")
 
 
+def test_bank_card_valid_date_preserves_anonymized_value():
+    print("\n--- Testing Bank Card Anonymized Valid Date ---")
+    lines = [
+        OCRLine(text="4532015112830366", left=50, top=100, right=350, bottom=130, score=0.99),
+        OCRLine(text="VALID THRU 88/88", left=50, top=150, right=300, bottom=180, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["valid_date"] == "88/88"
+    print("Bank Card Anonymized Valid Date Test Passed!")
+
+
 def test_bank_card_valid_date_ignores_nearby_card_suffix():
     print("\n--- Testing Bank Card Valid Date Near Card Suffix ---")
     lines = [
@@ -1030,6 +1041,7 @@ if __name__ == "__main__":
     test_bank_card_preserves_unlisted_local_bank_name()
     test_bank_card_recovers_single_symbol_in_embossed_number()
     test_bank_card_valid_date_accepts_year_month_format()
+    test_bank_card_valid_date_preserves_anonymized_value()
     test_bank_card_valid_date_ignores_nearby_card_suffix()
     test_bank_card_unknown_type_is_not_guessed_by_length()
     test_invoice_with_typos()
