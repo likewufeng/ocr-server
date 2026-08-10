@@ -14,6 +14,10 @@ class BankCardParser:
     """兼容不同银行卡版面的结构化解析器。"""
 
     catalog = BankCardCatalog.load(BANK_CARD_CATALOG_FILE, BANK_CARD_IIN_FILE)
+    HOLDER_EXCLUDED_TERMS = {
+        "AIRCHINA", "CHINA", "BANK", "CARD", "CREDIT", "DEBIT",
+        "VALID", "MONTH", "YEAR", "THRU", "UNIONPAY", "PHONNIX",
+    }
     EXPIRY_KEYWORDS = (
         "valid thru", "validthrough", "valid till", "validtill",
         "good thru", "goodthrough", "good till", "goodtill",
@@ -130,6 +134,22 @@ class BankCardParser:
         if not candidates:
             return None
 
+        # Prefer Luhn-valid candidates. For anonymized samples, a displayed
+        # number may intentionally fail Luhn; retain it only with a plausible
+        # payment-network prefix, and never accept obvious garbage such as
+        # an OCR candidate beginning with 8 or 9.
+        luhn_candidates = [item for item in candidates if item["luhn"]]
+        if luhn_candidates:
+            candidates = luhn_candidates
+        else:
+            candidates = [
+                item
+                for item in candidates
+                if item["number"][:1] in {"2", "3", "4", "5", "6"}
+            ]
+            if not candidates:
+                return None
+
         # Luhn 合法候选优先；对旧卡样本或合成测试数据，才回退到非 Luhn 候选。
         candidates.sort(
             key=lambda item: (
@@ -140,6 +160,24 @@ class BankCardParser:
             reverse=True,
         )
         return candidates[0]
+
+    def _extract_holder_name(self, layout: Layout, card_line_ids: set) -> str:
+        """Extract a conservative embossed Latin cardholder name."""
+        candidates = []
+        for line in layout.all() or []:
+            if id(line) in card_line_ids:
+                continue
+            text = re.sub(r"\s+", " ", (line.text or "").upper()).strip()
+            if not re.fullmatch(r"[A-Z][A-Z .'-]{3,39}", text):
+                continue
+            words = [word for word in re.split(r"[ .'-]+", text) if word]
+            if len(words) < 2 or any(term in words for term in self.HOLDER_EXCLUDED_TERMS):
+                continue
+            candidates.append((len(words), line.score, text))
+        if not candidates:
+            return ""
+        candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return candidates[0][2]
 
     def _extract_bank_name(
         self, layout: Layout, card_number: str
@@ -271,6 +309,8 @@ class BankCardParser:
             "card_type_source": MatchSource.UNKNOWN.value,
             "card_type_confidence": 0.0,
             "valid_date": "",
+            "holder_name": "",
+            "bank_card_type": 0,
         }
 
         candidate = self._select_card_candidate(layout)
@@ -292,4 +332,9 @@ class BankCardParser:
         data["card_type_source"] = card_type_source.value
         data["card_type_confidence"] = round(card_type_confidence, 4)
         data["valid_date"] = self._extract_valid_date(layout, card_line_ids)
+        data["holder_name"] = self._extract_holder_name(layout, card_line_ids)
+        data["bank_card_type"] = {
+            CardType.DEBIT: 1,
+            CardType.CREDIT: 2,
+        }.get(card_type, 0)
         return data

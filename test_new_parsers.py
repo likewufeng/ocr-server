@@ -162,6 +162,31 @@ def test_bank_card_with_split_bank_name():
     print("Bank Card Split Bank Test Passed!")
 
 
+def test_bank_card_extracts_holder_and_compatibility_type():
+    print("\n--- Testing Bank Card Holder and Compatibility Type ---")
+    lines = [
+        OCRLine(text="6225758888888888", left=50, top=80, right=400, bottom=110, score=0.99),
+        OCRLine(text="CREDIT CARD", left=50, top=120, right=220, bottom=145, score=0.98),
+        OCRLine(text="XIANG RI KUI", left=50, top=150, right=220, bottom=175, score=0.98),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["holder_name"] == "XIANG RI KUI"
+    assert result["bank_card_type"] == 2
+    print("Bank Card Holder and Compatibility Type Test Passed!")
+
+
+def test_bank_card_rejects_non_luhn_bin_false_positive():
+    print("\n--- Testing Bank Card Non-Luhn False Positive Rejection ---")
+    lines = [
+        OCRLine(text="8888 8888 885L 5229", left=50, top=80, right=400, bottom=110, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["card_number"] == ""
+    assert result["bank_name"] == ""
+    assert result["bank_card_type"] == 0
+    print("Bank Card Non-Luhn False Positive Rejection Test Passed!")
+
+
 def test_bank_card_prefers_luhn_valid_candidate():
     print("\n--- Testing Bank Card Luhn Candidate Selection ---")
     lines = [
@@ -993,6 +1018,8 @@ if __name__ == "__main__":
     test_id_back_with_truncated_balinyouqi_authority()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
+    test_bank_card_extracts_holder_and_compatibility_type()
+    test_bank_card_rejects_non_luhn_bin_false_positive()
     test_bank_card_prefers_luhn_valid_candidate()
     test_bank_card_uses_bin_when_bank_text_is_missing()
     test_bank_card_uses_china_bank_bin()
