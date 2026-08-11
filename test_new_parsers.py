@@ -120,6 +120,30 @@ def test_business_license_with_legacy_registration_number():
     print("Business License Legacy Registration Number Test Passed!")
 
 
+def test_business_license_with_merged_vertical_labels_and_person_overlay():
+    print("\n--- Testing Business License With Merged Labels And Person Overlay ---")
+    lines = [
+        OCRLine(text="营业执照", left=300, top=20, right=500, bottom=60, score=0.99),
+        OCRLine(text="统一社会信用代码91320583MA1W8MHP4W", left=600, top=80, right=980, bottom=110, score=0.99),
+        OCRLine(text="名类住", left=100, top=140, right=140, bottom=320, score=0.99),
+        OCRLine(text="称", left=230, top=140, right=260, bottom=175, score=0.99),
+        OCRLine(text="测试机电设备有限公司", left=300, top=140, right=580, bottom=175, score=0.99),
+        OCRLine(text="型", left=230, top=200, right=260, bottom=235, score=0.99),
+        OCRLine(text="有限责任公司", left=300, top=200, right=480, bottom=235, score=0.99),
+        OCRLine(text="所", left=230, top=260, right=260, bottom=295, score=0.99),
+        OCRLine(text="测试市测试区测试路1号", left=300, top=260, right=620, bottom=295, score=0.99),
+        OCRLine(text="法定代表人", left=100, top=340, right=250, bottom=375, score=0.99),
+        OCRLine(text="测试甲机电设备有限公司", left=300, top=332, right=620, bottom=370, score=0.99),
+        OCRLine(text="注册资本", left=100, top=420, right=250, bottom=455, score=0.99),
+        OCRLine(text="500万元整", left=300, top=420, right=450, bottom=455, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["name"] == "测试机电设备有限公司"
+    assert result["legal_person"] == "测试甲"
+    assert result["address"] == "测试市测试区测试路1号"
+    print("Business License Merged Labels And Person Overlay Test Passed!")
+
+
 def test_document_type_detects_bank_card_from_luhn_number():
     print("\n--- Testing Bank Card Detection From Luhn Number ---")
     lines = [
@@ -1097,6 +1121,7 @@ if __name__ == "__main__":
     test_business_scope_roi_selection()
     test_business_field_roi_candidate_validation()
     test_business_license_with_legacy_registration_number()
+    test_business_license_with_merged_vertical_labels_and_person_overlay()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()

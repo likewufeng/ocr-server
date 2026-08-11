@@ -265,6 +265,9 @@ class BusinessParser:
             bad_keywords = [
                 "层", "楼", "路", "街", "号", "市", "区", "省",
                 "镇", "村", "县", "道", "广场", "中心", "大厦",
+                "公司", "企业", "名称", "类型", "住所", "法定", "代表",
+                "负责人", "注册", "资本", "成立", "日期", "营业", "期限",
+                "经营", "范围",
             ]
             if any(kw in t for kw in bad_keywords):
                 return False
@@ -658,7 +661,7 @@ class BusinessParser:
 
             name_boundary_top = find_boundary_top(
                 0,
-                keywords=["法定代表人", "负责人", "住所", "住", "经营范围"],
+                keywords=["法定代表人", "负责人", "住所", "经营范围"],
             )
             for line in all_lines:
                 text = (line.text or "").strip()
@@ -745,6 +748,18 @@ class BusinessParser:
                 text = (block.text or "").strip()
                 if is_person_name(text):
                     return text
+
+                # 浅色姓名有时会与企业名称水印叠加，OCR 结果表现为
+                # “姓名 + 企业名称末尾”。已得到企业名称时，剥离重叠后缀后
+                # 仅在剩余内容符合姓名规则时采用。
+                company_name = (data.get("name") or "").strip()
+                if company_name:
+                    max_prefix = min(10, len(text) - 2)
+                    for prefix_length in range(2, max_prefix + 1):
+                        suffix = text[prefix_length:]
+                        candidate = text[:prefix_length]
+                        if len(suffix) >= 4 and company_name.endswith(suffix) and is_person_name(candidate):
+                            return candidate
 
             for block in blocks_below(
                 line,
@@ -918,6 +933,29 @@ class BusinessParser:
                 col_left=addr_col_left,
                 col_right=addr_col_right,
             )
+
+            # 标签和值可能上下错位几个像素，例如法人标签的 top 晚于其
+            # 右侧姓名。只在住所边界内收窄，并排除地址当前行，避免把
+            # 同行另一列的地址文本误当成下一字段边界。
+            for boundary_line in all_lines:
+                boundary_text = (boundary_line.text or "").strip()
+                if boundary_line.top <= addr_anchor.top:
+                    continue
+                if not (boundary_line.left < addr_col_right and boundary_line.right > addr_col_left):
+                    continue
+                if not any(keyword in boundary_text for keyword in (
+                    "经营范围", "登记机关", "市场监督", "法定代表人", "负责人",
+                    "注册资本", "注册资金", "成立日期", "注册日期", "设立日期", "类型",
+                )):
+                    continue
+                same_row_tops = [
+                    candidate.top
+                    for candidate in all_lines
+                    if candidate.top > addr_anchor.top
+                    and abs(cy(candidate) - cy(boundary_line)) <= row_tol(boundary_line, 0.35)
+                ]
+                if same_row_tops:
+                    boundary_top = min(boundary_top, min(same_row_tops))
 
             stop_keywords = [
                 "经营范围", "登记机关", "市场监督",

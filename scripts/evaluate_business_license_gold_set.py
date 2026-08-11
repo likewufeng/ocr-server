@@ -38,6 +38,11 @@ def comparison_kind(field: str, prediction: object, gold: object) -> str:
     return "内容不同"
 
 
+def value_length(field: str, value: object) -> int:
+    """Return the normalized value length without exposing document content."""
+    return len(normalize(field, value))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Evaluate /ocr against manually reviewed business-license gold data"
@@ -64,6 +69,8 @@ def main() -> int:
     failures = 0
     retry_recovered = 0
     latencies = []
+    failure_details = []
+    evaluation_issues = []
 
     for index, row in enumerate(reviewed_rows, start=1):
         image_name = row.get("image_file") or ""
@@ -73,6 +80,11 @@ def main() -> int:
         ]
         if not image_path.is_file() or not annotated_fields:
             failures += 1
+            evaluation_issues.append({
+                "sample_index": index,
+                "image_file": image_name,
+                "reason": "图片不存在" if not image_path.is_file() else "没有可评测的人工标注字段",
+            })
             continue
 
         started = time.perf_counter()
@@ -89,20 +101,41 @@ def main() -> int:
                 continue
         if not succeeded:
             failures += 1
+            evaluation_issues.append({
+                "sample_index": index,
+                "image_file": image_name,
+                "reason": "接口请求失败",
+            })
         latencies.append((time.perf_counter() - started) * 1000.0)
 
         row_correct = True
+        row_failures = []
         for field in annotated_fields:
             totals[field] += 1
-            relation = comparison_kind(field, prediction.get(field), row.get("final_{}".format(field)))
+            gold = row.get("final_{}".format(field))
+            predicted = prediction.get(field)
+            relation = comparison_kind(field, predicted, gold)
             comparison_summary[field][relation] += 1
             matched = relation == "完全一致"
             if matched:
                 correct[field] += 1
             else:
                 row_correct = False
+                row_failures.append({
+                    "field": field,
+                    "field_label": FIELD_LABELS[field],
+                    "comparison": relation,
+                    "gold_length": value_length(field, gold),
+                    "prediction_length": value_length(field, predicted),
+                })
         if row_correct:
             all_correct += 1
+        elif row_failures:
+            failure_details.append({
+                "sample_index": index,
+                "image_file": image_name,
+                "failed_fields": row_failures,
+            })
         all_total += 1
 
         if index % 10 == 0 or index == len(reviewed_rows):
@@ -129,6 +162,10 @@ def main() -> int:
         "comparison_summary": {
             field: dict(comparison_summary[field]) for field in FIELD_NAMES
         },
+        "failure_sample_count": len(failure_details),
+        "failure_field_count": sum(len(item["failed_fields"]) for item in failure_details),
+        "failure_details": failure_details,
+        "evaluation_issues": evaluation_issues,
         "latency_ms": {
             "count": len(latencies),
             "p50": percentile(latencies, 0.50),
@@ -144,7 +181,8 @@ def main() -> int:
     lines = [
         "# 营业执照 OCR 回归准确率报告",
         "",
-        "本报告基于人工复核后的金标数据集生成，仅包含汇总指标，不输出证照原文或识别结果。",
+        "本报告基于人工复核后的金标数据集生成。失败清单只保留定位所需的文件名、"
+        "字段、差异类型和长度，不输出证照原文或识别结果。",
         "",
         "| 指标 | 结果 |",
         "| --- | ---: |",
@@ -184,6 +222,50 @@ def main() -> int:
                 summary.get("内容不同", 0),
             )
         )
+    lines.extend([
+        "",
+        "## 失败清单（脱敏）",
+        "",
+        "失败样本数：{}；失败字段数：{}。长度按字段规范化后的字符数统计，"
+        "不包含任何金标或识别原文。".format(
+            report["failure_sample_count"], report["failure_field_count"]
+        ),
+        "",
+    ])
+    if failure_details:
+        lines.extend([
+            "| 样本序号 | 文件名 | 字段 | 差异类型 | 金标长度 | 识别长度 |",
+            "| ---: | --- | --- | --- | ---: | ---: |",
+        ])
+        for sample in failure_details:
+            for detail in sample["failed_fields"]:
+                lines.append(
+                    "| {} | {} | {} | {} | {} | {} |".format(
+                        sample["sample_index"],
+                        sample["image_file"],
+                        detail["field_label"],
+                        detail["comparison"],
+                        detail["gold_length"],
+                        detail["prediction_length"],
+                    )
+                )
+    else:
+        lines.append("所有已评测字段均完全一致。")
+
+    if evaluation_issues:
+        lines.extend([
+            "",
+            "## 评测异常",
+            "",
+            "| 样本序号 | 文件名 | 原因 |",
+            "| ---: | --- | --- |",
+        ])
+        for issue in evaluation_issues:
+            lines.append(
+                "| {} | {} | {} |".format(
+                    issue["sample_index"], issue["image_file"], issue["reason"]
+                )
+            )
     args.output_markdown.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if not failures else 1
