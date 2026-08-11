@@ -121,6 +121,19 @@ def test_business_license_with_legacy_registration_number():
     print("Business License Legacy Registration Number Test Passed!")
 
 
+def test_business_license_prefers_valid_uscc_over_legacy_registration_number():
+    print("\n--- Testing Business License USCC Priority ---")
+    lines = [
+        OCRLine(text="营业执照", left=300, top=20, right=500, bottom=60, score=0.99),
+        OCRLine(text="统一社会信用代码91410000692152338A", left=250, top=80, right=700, bottom=105, score=0.99),
+        OCRLine(text="注册号420102000415835", left=250, top=115, right=560, bottom=140, score=0.99),
+        OCRLine(text="证照编号28000000201411130529", left=250, top=150, right=600, bottom=175, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["credit_code"] == "91410000692152338A"
+    print("Business License USCC Priority Test Passed!")
+
+
 def test_business_license_with_merged_vertical_labels_and_person_overlay():
     print("\n--- Testing Business License With Merged Labels And Person Overlay ---")
     lines = [
@@ -1122,6 +1135,7 @@ if __name__ == "__main__":
     test_business_scope_roi_selection()
     test_business_field_roi_candidate_validation()
     test_business_license_with_legacy_registration_number()
+    test_business_license_prefers_valid_uscc_over_legacy_registration_number()
     test_business_license_with_merged_vertical_labels_and_person_overlay()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()

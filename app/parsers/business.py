@@ -588,6 +588,7 @@ class BusinessParser:
             # 三证合一前营业执照使用 15 位纯数字“注册号”。只有检测到该
             # 标签时才接收 15 位数字，避免将日期、电话等误判为企业编号。
             registration_labels = ("注册号", "注册号码")
+            legacy_registration = ""
             for line in all_lines:
                 compact = re.sub(r"\s+", "", line.text or "")
                 label = next((item for item in registration_labels if item in compact), None)
@@ -604,7 +605,11 @@ class BusinessParser:
                         continue
                     candidate = fix_legacy_registration_number(match.group())
                     if _validate_legacy_registration_number(candidate):
-                        return candidate
+                        legacy_registration = candidate
+                        break
+
+                if legacy_registration:
+                    break
 
             # 18 位统一社会信用代码有校验位，可安全地从全图搜索；但不能
             # 将“证照编号”等任意 18 位数字作为信用代码返回。
@@ -624,7 +629,7 @@ class BusinessParser:
             if labeled_fallback:
                 return labeled_fallback
 
-            return ""
+            return legacy_registration
 
         data["credit_code"] = extract_credit_code()
 
