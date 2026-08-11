@@ -652,6 +652,16 @@ class BusinessParser:
 
             name_label = find_exact("名")
             if name_label:
+                # “名称”被拆为左侧高框“名”和右侧“称+企业名称”时，优先
+                # 使用带“称”前缀的同栏文本，避免高框容差误纳入下一行“类型”。
+                for block in same_row_right_blocks(name_label, tol=row_tol(name_label, 1.0)):
+                    raw = (block.text or "").strip()
+                    if not raw.startswith("称"):
+                        continue
+                    candidate = raw[1:].lstrip(":：").strip()
+                    if looks_like_company_name(candidate):
+                        return candidate
+
                 row_parts = collect_row_sequence(
                     same_row_right_blocks(name_label, tol=row_tol(name_label, 1.0)),
                     skip_exact={"称"},
@@ -1085,7 +1095,10 @@ class BusinessParser:
                 if not text:
                     continue
 
-                if block.top < scope_line.top and not any(kw in text for kw in ("一般项目", "许可项目", "许可项", "项目")):
+                if (
+                    block.bottom < scope_line.top
+                    and not any(kw in text for kw in ("一般项目", "许可项目", "许可项", "项目"))
+                ):
                     continue
 
                 if any(kw in text for kw in stop_keywords):

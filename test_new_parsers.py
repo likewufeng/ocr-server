@@ -134,6 +134,24 @@ def test_business_license_prefers_valid_uscc_over_legacy_registration_number():
     print("Business License USCC Priority Test Passed!")
 
 
+def test_business_license_split_name_and_overlapping_scope_row():
+    print("\n--- Testing Business License Split Name And Scope Row Overlap ---")
+    lines = [
+        OCRLine(text="营业执照", left=539, top=414, right=1289, bottom=607, score=0.99),
+        OCRLine(text="名", left=118, top=694, right=146, bottom=759, score=0.99),
+        OCRLine(text="称四川中启天盛环保科技有限公司", left=274, top=696, right=718, bottom=722, score=0.99),
+        OCRLine(text="型有限责任公司(自然人投资或控股)", left=274, top=753, right=743, bottom=779, score=0.99),
+        OCRLine(text="经营范围", left=114, top=869, right=306, bottom=901, score=0.99),
+        OCRLine(text="节能环保材料、技术服务", left=315, top=867, right=988, bottom=894, score=0.99),
+        OCRLine(text="和技术转让", left=323, top=897, right=986, bottom=916, score=0.99),
+        OCRLine(text="登记机关", left=1216, top=1125, right=1436, bottom=1165, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["name"] == "四川中启天盛环保科技有限公司"
+    assert result["business_scope"] == "节能环保材料、技术服务和技术转让"
+    print("Business License Split Name And Scope Row Overlap Test Passed!")
+
+
 def test_business_license_with_merged_vertical_labels_and_person_overlay():
     print("\n--- Testing Business License With Merged Labels And Person Overlay ---")
     lines = [
@@ -1136,6 +1154,7 @@ if __name__ == "__main__":
     test_business_field_roi_candidate_validation()
     test_business_license_with_legacy_registration_number()
     test_business_license_prefers_valid_uscc_over_legacy_registration_number()
+    test_business_license_split_name_and_overlapping_scope_row()
     test_business_license_with_merged_vertical_labels_and_person_overlay()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
