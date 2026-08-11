@@ -24,6 +24,12 @@ from app.config import OCR_ENABLE_DOC_ORIENTATION_MODEL
 from app.config import OCR_ENABLE_MKLDNN
 from app.config import OCR_INFERENCE_BACKEND
 from app.config import OCR_CACHE_VERSION
+from app.config import OCR_BUSINESS_SCOPE_ROI_MAX_SIDE
+from app.config import OCR_BUSINESS_SCOPE_ROI_MIN_CHARS
+from app.config import OCR_BUSINESS_SCOPE_ROI_MIN_SCORE
+from app.config import OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED
+from app.config import OCR_BUSINESS_SCOPE_ROI_SCALE
+from app.config import OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT
 from app.config import OCR_ID_FRONT_MIN_SCORE
 from app.config import OCR_ID_FRONT_FIELD_ROI_MIN_SCORE
 from app.config import OCR_ID_FRONT_FIELD_ROI_SCALE
@@ -75,6 +81,7 @@ doc_unwarping_model_path = MODEL_DIR / "official_models" / "UVDoc"
 DOCUMENT_DETECTION_SIDE_LIMITS = {
     "id_front": 768,
     "id_back": 768,
+    "business_license": OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT,
 }
 DEFAULT_DETECTION_SIDE_LIMIT = 960
 ID_FRONT_NATION_CROP_SCALE = 4
@@ -234,6 +241,9 @@ class OCRService:
             "id_front_retry_scale": OCR_ID_FRONT_RETRY_SCALE,
             "id_front_retry_blur": OCR_ID_FRONT_RETRY_BLUR_THRESHOLD,
             "id_front_retry_min_side": OCR_ID_FRONT_RETRY_MIN_SIDE,
+            "business_scope_roi_retry": OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED,
+            "business_scope_roi_min_chars": OCR_BUSINESS_SCOPE_ROI_MIN_CHARS,
+            "business_scope_roi_scale": OCR_BUSINESS_SCOPE_ROI_SCALE,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
             "min_score": effective_min_score,
@@ -511,6 +521,12 @@ class OCRService:
         """Run conditional ID-front field recovery on the predictor-owning thread."""
         return self._inference_executor.submit(
             self.recover_id_front_fields, image_path, **kwargs
+        )
+
+    def submit_recover_business_license_scope(self, image_path: str, **kwargs):
+        """Run business-scope ROI recovery on the predictor-owning thread."""
+        return self._inference_executor.submit(
+            self.recover_business_license_scope, image_path, **kwargs
         )
 
     def submit_recognize_with_layout(self, image_path: str):
@@ -975,6 +991,153 @@ class OCRService:
                 return
         except Exception as exc:
             request_logger.warning("Business address crop OCR failed: {}", exc)
+        finally:
+            if temporary_crop:
+                try:
+                    os.remove(temporary_crop)
+                except OSError:
+                    pass
+
+    @staticmethod
+    def should_recover_business_license_scope(document: dict[str, Any]) -> bool:
+        """Only retry a scope that is missing or clearly shorter than configured."""
+        if document.get("type") != "business_license":
+            return False
+        scope = re.sub(r"\s+", "", str(document.get("business_scope") or ""))
+        return not scope or len(scope) < OCR_BUSINESS_SCOPE_ROI_MIN_CHARS
+
+    @staticmethod
+    def _business_scope_anchor_index(texts: list[str], boxes: list[list]) -> Optional[int]:
+        for index, (text, box) in enumerate(zip(texts, boxes)):
+            if len(box) >= 4 and "经营范围" in (text or ""):
+                return index
+        return None
+
+    @staticmethod
+    def _map_crop_box(
+        crop_box: list, crop_left: int, crop_top: int, scale: float
+    ) -> list[int]:
+        return [
+            int(crop_left + float(value) / scale)
+            if position % 2 == 0
+            else int(crop_top + float(value) / scale)
+            for position, value in enumerate(crop_box[:4])
+        ]
+
+    def recover_business_license_scope(
+        self,
+        image_path: str,
+        ocr_result: dict[str, Any],
+        output_dir: Optional[Union[str, Path]] = None,
+        request_logger=None,
+    ) -> dict[str, Any]:
+        """OCR the scope region and return mapped lines without mutating first-pass OCR."""
+        metadata = {
+            "attempted": False,
+            "artifact": None,
+            "recognized_line_count": 0,
+        }
+        empty_result = {"texts": [], "scores": [], "boxes": [], "polys": [], "angle": 0}
+        texts = ocr_result.get("texts") or []
+        boxes = ocr_result.get("boxes") or []
+        anchor_index = self._business_scope_anchor_index(texts, boxes)
+        if anchor_index is None:
+            metadata["reason"] = "scope_label_not_found"
+            return {"result": empty_result, "metadata": metadata}
+
+        image = cv2.imread(image_path)
+        if image is None:
+            metadata["reason"] = "image_read_failed"
+            return {"result": empty_result, "metadata": metadata}
+
+        anchor = boxes[anchor_index]
+        left, top, right, bottom = (int(value) for value in anchor[:4])
+        anchor_height = max(1, bottom - top)
+        image_height, image_width = image.shape[:2]
+        footer_tops = [
+            int(box[1])
+            for text, box in zip(texts, boxes)
+            if len(box) >= 4
+            and int(box[1]) > bottom
+            and any(marker in (text or "") for marker in ("登记机关", "市场监督", "国家企业信用"))
+        ]
+        crop_left = 0
+        crop_right = image_width
+        crop_top = max(0, top - anchor_height)
+        default_bottom = bottom + max(520, anchor_height * 22)
+        crop_bottom = min(image_height, min(footer_tops) if footer_tops else default_bottom)
+        if crop_right <= crop_left or crop_bottom <= crop_top:
+            metadata["reason"] = "invalid_crop_bounds"
+            return {"result": empty_result, "metadata": metadata}
+
+        crop = image[crop_top:crop_bottom, crop_left:crop_right]
+        scale = OCR_BUSINESS_SCOPE_ROI_SCALE
+        max_side = max(crop.shape[:2])
+        if max_side * scale > OCR_BUSINESS_SCOPE_ROI_MAX_SIDE:
+            scale = max(1.0, OCR_BUSINESS_SCOPE_ROI_MAX_SIDE / max_side)
+        enlarged_crop = crop
+        if scale > 1.0:
+            enlarged_crop = cv2.resize(
+                crop, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
+            )
+
+        temporary_crop = None
+        artifact_name = "business_license_scope_roi.jpg"
+        if output_dir is not None:
+            crop_path = Path(output_dir) / artifact_name
+            metadata["artifact"] = artifact_name
+        else:
+            descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+            os.close(descriptor)
+            crop_path = Path(temporary_crop)
+
+        metadata.update(
+            {
+                "attempted": True,
+                "crop_bounds": [crop_left, crop_top, crop_right, crop_bottom],
+                "scale": round(scale, 3),
+            }
+        )
+        try:
+            if not cv2.imwrite(str(crop_path), enlarged_crop):
+                metadata["reason"] = "crop_write_failed"
+                return {"result": empty_result, "metadata": metadata}
+
+            recovered = {"texts": [], "scores": [], "boxes": [], "polys": [], "angle": 0}
+            predict_options = {"text_det_limit_side_len": 1280, "text_det_limit_type": "max"}
+            if not self.pipeline_uses_fine_tuned_detector:
+                predict_options.update(
+                    {"use_doc_orientation_classify": False, "use_doc_unwarping": False}
+                )
+            for prediction in self.pipeline.predict(str(crop_path), **predict_options):
+                for index, score in enumerate(prediction["rec_scores"]):
+                    if float(score) < OCR_BUSINESS_SCOPE_ROI_MIN_SCORE:
+                        continue
+                    text = self.postprocess_texts([prediction["rec_texts"][index]])[0]
+                    if not text:
+                        continue
+                    mapped_box = self._map_crop_box(
+                        prediction["rec_boxes"][index].tolist(), crop_left, crop_top, scale
+                    )
+                    recovered["texts"].append(text)
+                    recovered["scores"].append(float(score))
+                    recovered["boxes"].append(mapped_box)
+                    recovered["polys"].append(
+                        [
+                            [mapped_box[0], mapped_box[1]],
+                            [mapped_box[2], mapped_box[1]],
+                            [mapped_box[2], mapped_box[3]],
+                            [mapped_box[0], mapped_box[3]],
+                        ]
+                    )
+                break
+            metadata["recognized_line_count"] = len(recovered["texts"])
+            return {"result": recovered, "metadata": metadata}
+        except Exception as exc:
+            metadata["reason"] = "roi_ocr_failed"
+            if request_logger is not None:
+                request_logger.warning("Business scope ROI OCR failed: {}", exc)
+            return {"result": empty_result, "metadata": metadata}
         finally:
             if temporary_crop:
                 try:

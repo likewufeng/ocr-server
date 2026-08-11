@@ -167,6 +167,30 @@ OCR_ID_FRONT_FIELD_ROI_MIN_SCORE = min(
     1.0, max(0.0, float(os.getenv("OCR_ID_FRONT_FIELD_ROI_MIN_SCORE", "0.5")))
 )
 
+# 营业执照经营范围为空或明显过短时，裁剪该区域做一次局部 OCR。默认关闭，
+# 应先通过金标集 A/B 验证后再按部署环境启用；本地 --reload 不监听 .env，修改后也需重启服务。
+OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED = _env_bool(
+    "OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED", False
+)
+OCR_BUSINESS_SCOPE_ROI_MIN_CHARS = max(
+    1, int(os.getenv("OCR_BUSINESS_SCOPE_ROI_MIN_CHARS", "48"))
+)
+OCR_BUSINESS_SCOPE_ROI_SCALE = min(
+    2.0, max(1.0, float(os.getenv("OCR_BUSINESS_SCOPE_ROI_SCALE", "1.5")))
+)
+OCR_BUSINESS_SCOPE_ROI_MAX_SIDE = max(
+    960, int(os.getenv("OCR_BUSINESS_SCOPE_ROI_MAX_SIDE", "2200"))
+)
+OCR_BUSINESS_SCOPE_ROI_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("OCR_BUSINESS_SCOPE_ROI_MIN_SCORE", "0.5")))
+)
+
+# 营业执照通常包含字号较小且行数较多的经营范围。默认保持通用检测边长，
+# 可在金标 A/B 中提高至 1280 以换取更高的文字检测分辨率；修改 .env 后需重启服务，默认 960。
+OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT = max(
+    640, int(os.getenv("OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT", "960"))
+)
+
 # 身份证正面低质量图片的条件重试。首轮结果完整时不会触发第二次推理；
 # 重试只使用温和的放大、CLAHE 和锐化，不改变生产默认的 UVDoc 行为。
 OCR_ID_FRONT_QUALITY_RETRY_ENABLED = _env_bool(

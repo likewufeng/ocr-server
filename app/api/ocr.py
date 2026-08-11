@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.config import (
+    OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED,
     OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED,
     OCR_MAX_CONCURRENT_REQUESTS,
     OUTPUT_DIR,
@@ -95,6 +96,25 @@ def _cache_key(
     return hashlib.sha256(
         f"{content_sha256}:{signature}".encode("ascii")
     ).hexdigest()
+
+
+def _compact_scope_text(value: object) -> str:
+    return re.sub(r"[\s,，;；:：、.。()（）]", "", str(value or ""))
+
+
+def _select_business_scope_recovery(
+    current_scope: object, recovered_scope: object
+) -> tuple[bool, str]:
+    """Accept only an ROI result that safely extends the incomplete first pass."""
+    current = _compact_scope_text(current_scope)
+    recovered = _compact_scope_text(recovered_scope)
+    if not recovered:
+        return False, "roi_scope_empty"
+    if not current:
+        return len(recovered) >= 4, "filled_empty_scope"
+    if current in recovered and len(recovered) > len(current):
+        return True, "extended_first_pass_scope"
+    return False, "roi_scope_not_proven_better"
 
 
 async def _recognize(
@@ -243,6 +263,49 @@ async def ocr(
                 _save_json,
                 output_dir / "field_roi_recovery.json",
                 field_roi_recovery,
+            )
+
+        if (
+            OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED
+            and ocr_service.should_recover_business_license_scope(document)
+        ):
+            scope_roi_recovery = await asyncio.wrap_future(
+                ocr_service.submit_recover_business_license_scope(
+                    str(path),
+                    ocr_result=ocr_result,
+                    output_dir=output_dir,
+                    request_logger=request_logger,
+                )
+            )
+            recovered_document = parser.parse(
+                build_layout(scope_roi_recovery["result"]),
+                document_type="business_license",
+            )
+            accepted, reason = _select_business_scope_recovery(
+                document.get("business_scope"),
+                recovered_document.get("business_scope"),
+            )
+            scope_roi_recovery["metadata"].update(
+                {
+                    "accepted": accepted,
+                    "selection_reason": reason,
+                    "first_pass_char_count": len(
+                        _compact_scope_text(document.get("business_scope"))
+                    ),
+                    "roi_scope_char_count": len(
+                        _compact_scope_text(recovered_document.get("business_scope"))
+                    ),
+                }
+            )
+            if accepted:
+                document["business_scope"] = recovered_document["business_scope"]
+                request_logger.info(
+                    "Business scope recovered from ROI: reason={}", reason
+                )
+            await run_in_threadpool(
+                _save_json,
+                output_dir / "business_scope_roi_recovery.json",
+                scope_roi_recovery["metadata"],
             )
 
         await run_in_threadpool(

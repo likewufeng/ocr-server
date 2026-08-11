@@ -46,6 +46,7 @@ def test_id_front_unwarping_is_document_specific():
     assert service._effective_unwarping("id_front") is False
     assert service._effective_unwarping("business_license") is False
     assert service._effective_unwarping(None) is False
+    assert service._detection_side_limit("business_license") >= 640
     print("ID-front unwarping scope test passed!")
 
 
@@ -76,6 +77,18 @@ def test_id_front_quality_retry_helpers():
     assert scaled["polys"] == [[[5, 10], [15, 10], [15, 20], [5, 20]]]
     assert service._id_front_result_rank(result)[0] > 0
     print("ID-front quality retry helper test passed!")
+
+
+def test_business_scope_roi_selection():
+    from app.api.ocr import _select_business_scope_recovery
+
+    assert _select_business_scope_recovery("", "一般项目：软件开发")[0] is True
+    assert _select_business_scope_recovery(
+        "软件开发", "一般项目：软件开发、信息系统集成服务"
+    )[0] is True
+    assert _select_business_scope_recovery("软件开发", "企业管理咨询")[0] is False
+    assert _select_business_scope_recovery("软件开发", "")[0] is False
+    print("Business-scope ROI selection test passed!")
 
 
 def test_document_type_detects_bank_card_from_luhn_number():
@@ -1052,6 +1065,7 @@ if __name__ == "__main__":
     test_document_type_hint()
     test_id_front_unwarping_is_document_specific()
     test_id_front_quality_retry_helpers()
+    test_business_scope_roi_selection()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()
