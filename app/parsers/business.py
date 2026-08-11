@@ -87,6 +87,11 @@ def fix_credit_code(raw: str) -> str:
     return "".join(chars)
 
 
+def is_valid_credit_code(raw: str) -> bool:
+    """Return whether a possibly OCR-noisy unified social credit code is valid."""
+    return _validate_uscc(fix_credit_code(raw or ""))
+
+
 # ------------------------------------------------------------------ #
 #  主解析器                                                           #
 # ------------------------------------------------------------------ #

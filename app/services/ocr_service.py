@@ -30,6 +30,9 @@ from app.config import OCR_BUSINESS_SCOPE_ROI_MIN_SCORE
 from app.config import OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED
 from app.config import OCR_BUSINESS_SCOPE_ROI_SCALE
 from app.config import OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT
+from app.config import OCR_BUSINESS_FIELD_ROI_MIN_SCORE
+from app.config import OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED
+from app.config import OCR_BUSINESS_FIELD_ROI_SCALE
 from app.config import OCR_ID_FRONT_MIN_SCORE
 from app.config import OCR_ID_FRONT_FIELD_ROI_MIN_SCORE
 from app.config import OCR_ID_FRONT_FIELD_ROI_SCALE
@@ -244,6 +247,8 @@ class OCRService:
             "business_scope_roi_retry": OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED,
             "business_scope_roi_min_chars": OCR_BUSINESS_SCOPE_ROI_MIN_CHARS,
             "business_scope_roi_scale": OCR_BUSINESS_SCOPE_ROI_SCALE,
+            "business_field_roi_retry": OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED,
+            "business_field_roi_scale": OCR_BUSINESS_FIELD_ROI_SCALE,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
             "min_score": effective_min_score,
@@ -527,6 +532,12 @@ class OCRService:
         """Run business-scope ROI recovery on the predictor-owning thread."""
         return self._inference_executor.submit(
             self.recover_business_license_scope, image_path, **kwargs
+        )
+
+    def submit_recover_business_license_fields(self, image_path: str, **kwargs):
+        """Run missing business-field ROI recovery on the predictor-owning thread."""
+        return self._inference_executor.submit(
+            self.recover_business_license_fields, image_path, **kwargs
         )
 
     def submit_recognize_with_layout(self, image_path: str):
@@ -1144,6 +1155,147 @@ class OCRService:
                     os.remove(temporary_crop)
                 except OSError:
                     pass
+
+    @staticmethod
+    def _business_field_anchor_index(
+        texts: list[str], boxes: list[list], field: str
+    ) -> Optional[int]:
+        for index, (text, box) in enumerate(zip(texts, boxes)):
+            if len(box) < 4:
+                continue
+            compact = re.sub(r"\s+", "", text or "")
+            if field == "credit_code" and any(
+                label in compact for label in ("统一社会信用代码", "社会信用代码", "信用代码")
+            ):
+                return index
+            if field == "name" and ("名称" in compact or compact in {"名", "称"}):
+                return index
+            if field == "legal_person" and any(
+                label in compact for label in ("法定代表人", "负责人")
+            ):
+                return index
+        return None
+
+    @staticmethod
+    def _business_field_crop_bounds(
+        field: str,
+        anchor_box: list,
+        image_width: int,
+        image_height: int,
+    ) -> tuple[int, int, int, int]:
+        left, top, right, bottom = (int(value) for value in anchor_box[:4])
+        width = max(1, right - left)
+        height = max(1, bottom - top)
+        if field == "credit_code":
+            crop_left = max(0, left - int(height * 0.5))
+            crop_right = min(image_width, right + max(360, int(width * 1.8)))
+            crop_top = max(0, top - int(height * 0.8))
+            crop_bottom = min(image_height, bottom + max(110, int(height * 3.8)))
+        else:
+            crop_left = max(0, left - int(height * 0.5))
+            crop_right = min(image_width, right + max(260, int(width * 3.2)))
+            crop_top = max(0, top - int(height * 1.1))
+            crop_bottom = min(image_height, bottom + int(height * 1.5))
+        return crop_left, crop_top, crop_right, crop_bottom
+
+    def recover_business_license_fields(
+        self,
+        image_path: str,
+        ocr_result: dict[str, Any],
+        fields: list[str],
+        output_dir: Optional[Union[str, Path]] = None,
+        request_logger=None,
+    ) -> dict[str, Any]:
+        """Run label-anchored local OCR for missing business-license fields."""
+        metadata = {"attempted_fields": [], "artifacts": [], "results": {}}
+        texts = ocr_result.get("texts") or []
+        boxes = ocr_result.get("boxes") or []
+        image = cv2.imread(image_path)
+        if image is None:
+            metadata["reason"] = "image_read_failed"
+            return metadata
+        image_height, image_width = image.shape[:2]
+
+        for field in fields:
+            anchor_index = self._business_field_anchor_index(texts, boxes, field)
+            if anchor_index is None:
+                metadata["results"][field] = {"reason": "label_not_found"}
+                continue
+            crop_left, crop_top, crop_right, crop_bottom = self._business_field_crop_bounds(
+                field, boxes[anchor_index], image_width, image_height
+            )
+            if crop_right <= crop_left or crop_bottom <= crop_top:
+                metadata["results"][field] = {"reason": "invalid_crop_bounds"}
+                continue
+            metadata["attempted_fields"].append(field)
+            crop = image[crop_top:crop_bottom, crop_left:crop_right]
+            enlarged_crop = cv2.resize(
+                crop,
+                None,
+                fx=OCR_BUSINESS_FIELD_ROI_SCALE,
+                fy=OCR_BUSINESS_FIELD_ROI_SCALE,
+                interpolation=cv2.INTER_CUBIC,
+            )
+            temporary_crop = None
+            artifact_name = "business_license_{}_roi.jpg".format(field)
+            if output_dir is not None:
+                crop_path = Path(output_dir) / artifact_name
+                metadata["artifacts"].append(artifact_name)
+            else:
+                descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+                os.close(descriptor)
+                crop_path = Path(temporary_crop)
+            try:
+                if not cv2.imwrite(str(crop_path), enlarged_crop):
+                    metadata["results"][field] = {"reason": "crop_write_failed"}
+                    continue
+                recovered = {"texts": [], "scores": [], "boxes": [], "polys": [], "angle": 0}
+                options = {"text_det_limit_side_len": 960, "text_det_limit_type": "max"}
+                if not self.pipeline_uses_fine_tuned_detector:
+                    options.update(
+                        {"use_doc_orientation_classify": False, "use_doc_unwarping": False}
+                    )
+                for prediction in self.pipeline.predict(str(crop_path), **options):
+                    for index, score in enumerate(prediction["rec_scores"]):
+                        if float(score) < OCR_BUSINESS_FIELD_ROI_MIN_SCORE:
+                            continue
+                        text = self.postprocess_texts([prediction["rec_texts"][index]])[0]
+                        if not text:
+                            continue
+                        mapped_box = self._map_crop_box(
+                            prediction["rec_boxes"][index].tolist(),
+                            crop_left,
+                            crop_top,
+                            OCR_BUSINESS_FIELD_ROI_SCALE,
+                        )
+                        recovered["texts"].append(text)
+                        recovered["scores"].append(float(score))
+                        recovered["boxes"].append(mapped_box)
+                        recovered["polys"].append(
+                            [
+                                [mapped_box[0], mapped_box[1]],
+                                [mapped_box[2], mapped_box[1]],
+                                [mapped_box[2], mapped_box[3]],
+                                [mapped_box[0], mapped_box[3]],
+                            ]
+                        )
+                    break
+                metadata["results"][field] = {
+                    "reason": "ok",
+                    "recognized_line_count": len(recovered["texts"]),
+                    "ocr_result": recovered,
+                }
+            except Exception as exc:
+                metadata["results"][field] = {"reason": "roi_ocr_failed"}
+                if request_logger is not None:
+                    request_logger.warning("Business field ROI failed: field={}, error={}", field, exc)
+            finally:
+                if temporary_crop:
+                    try:
+                        os.remove(temporary_crop)
+                    except OSError:
+                        pass
+        return metadata
 
     @staticmethod
     def _id_front_field_anchor_index(

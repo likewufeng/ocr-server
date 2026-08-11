@@ -91,6 +91,18 @@ def test_business_scope_roi_selection():
     print("Business-scope ROI selection test passed!")
 
 
+def test_business_field_roi_candidate_validation():
+    from app.api.ocr import _is_valid_business_field_value
+
+    assert _is_valid_business_field_value("credit_code", "91410000692152338A") is True
+    assert _is_valid_business_field_value("credit_code", "91410000692152338B") is False
+    assert _is_valid_business_field_value("name", "测试科技有限公司") is True
+    assert _is_valid_business_field_value("name", "测试路1号") is False
+    assert _is_valid_business_field_value("legal_person", "测试人员") is True
+    assert _is_valid_business_field_value("legal_person", "测试市") is False
+    print("Business-field ROI candidate validation test passed!")
+
+
 def test_document_type_detects_bank_card_from_luhn_number():
     print("\n--- Testing Bank Card Detection From Luhn Number ---")
     lines = [
@@ -1066,6 +1078,7 @@ if __name__ == "__main__":
     test_id_front_unwarping_is_document_specific()
     test_id_front_quality_retry_helpers()
     test_business_scope_roi_selection()
+    test_business_field_roi_candidate_validation()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()

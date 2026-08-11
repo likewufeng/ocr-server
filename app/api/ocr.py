@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Query, Response, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.config import (
+    OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED,
     OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED,
     OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED,
     OCR_MAX_CONCURRENT_REQUESTS,
@@ -18,6 +19,7 @@ from app.config import (
     UPLOAD_DIR,
 )
 from app.parsers.parser import OCRParser
+from app.parsers.business import is_valid_credit_code
 from app.schemas.response import ApiResponse
 from app.services.ocr_service import ocr_service
 from app.utils.layout import build_layout
@@ -115,6 +117,24 @@ def _select_business_scope_recovery(
     if current in recovered and len(recovered) > len(current):
         return True, "extended_first_pass_scope"
     return False, "roi_scope_not_proven_better"
+
+
+def _is_valid_business_field_value(field: str, value: object) -> bool:
+    text = re.sub(r"\s+", "", str(value or ""))
+    if field == "credit_code":
+        return is_valid_credit_code(text)
+    if field == "name":
+        suffixes = ("有限公司", "有限责任公司", "股份有限公司", "合伙企业", "个人独资企业", "农民专业合作社")
+        return len(text) >= 4 and not re.search(r"\d", text) and any(
+            suffix in text for suffix in suffixes
+        )
+    if field == "legal_person":
+        if not (2 <= len(text) <= 10) or re.search(r"\d", text):
+            return False
+        if not all("\u4e00" <= char <= "\u9fff" for char in text):
+            return False
+        return not any(token in text for token in ("省", "市", "区", "县", "路", "楼", "层", "公司"))
+    return False
 
 
 async def _recognize(
@@ -263,6 +283,48 @@ async def ocr(
                 _save_json,
                 output_dir / "field_roi_recovery.json",
                 field_roi_recovery,
+            )
+
+        missing_business_fields = [
+            field
+            for field in ("credit_code", "name", "legal_person")
+            if not document.get(field)
+        ]
+        if (
+            OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED
+            and document.get("type") == "business_license"
+            and missing_business_fields
+        ):
+            business_field_roi = await asyncio.wrap_future(
+                ocr_service.submit_recover_business_license_fields(
+                    str(path),
+                    ocr_result=ocr_result,
+                    fields=missing_business_fields,
+                    output_dir=output_dir,
+                    request_logger=request_logger,
+                )
+            )
+            recovered_fields = []
+            for field in missing_business_fields:
+                recovery = business_field_roi["results"].get(field) or {}
+                crop_result = recovery.pop("ocr_result", None)
+                if not crop_result:
+                    continue
+                candidate = parser.parse(
+                    build_layout(crop_result), document_type="business_license"
+                ).get(field)
+                recovery["candidate_valid"] = _is_valid_business_field_value(
+                    field, candidate
+                )
+                if recovery["candidate_valid"]:
+                    document[field] = candidate
+                    recovered_fields.append(field)
+                    request_logger.info("Business field recovered from ROI: field={}", field)
+            business_field_roi["recovered_fields"] = recovered_fields
+            await run_in_threadpool(
+                _save_json,
+                output_dir / "business_field_roi_recovery.json",
+                business_field_roi,
             )
 
         if (

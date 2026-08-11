@@ -185,6 +185,18 @@ OCR_BUSINESS_SCOPE_ROI_MIN_SCORE = min(
     1.0, max(0.0, float(os.getenv("OCR_BUSINESS_SCOPE_ROI_MIN_SCORE", "0.5")))
 )
 
+# 仅在营业执照的统一社会信用代码、名称或法定代表人为空时，按标签位置裁剪小区域补识别。
+# 默认关闭，避免为正常请求增加第二次推理；修改 .env 后需重启服务。
+OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED = _env_bool(
+    "OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED", False
+)
+OCR_BUSINESS_FIELD_ROI_SCALE = min(
+    4.0, max(1.0, float(os.getenv("OCR_BUSINESS_FIELD_ROI_SCALE", "3.0")))
+)
+OCR_BUSINESS_FIELD_ROI_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("OCR_BUSINESS_FIELD_ROI_MIN_SCORE", "0.5")))
+)
+
 # 营业执照通常包含字号较小且行数较多的经营范围。默认保持通用检测边长，
 # 可在金标 A/B 中提高至 1280 以换取更高的文字检测分辨率；修改 .env 后需重启服务，默认 960。
 OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT = max(
