@@ -111,6 +111,7 @@ def test_business_license_with_legacy_registration_number():
         OCRLine(text="营业执照", left=300, top=20, right=500, bottom=60, score=0.99),
         OCRLine(text="注册号", left=250, top=100, right=330, bottom=125, score=0.99),
         OCRLine(text="420102000415835", left=345, top=100, right=560, bottom=125, score=0.99),
+        OCRLine(text="证照编号28000000201411130529", left=250, top=130, right=600, bottom=155, score=0.99),
         OCRLine(text="名称测试化学有限公司", left=250, top=145, right=560, bottom=170, score=0.99),
         OCRLine(text="法定代表人测试人", left=250, top=190, right=500, bottom=215, score=0.99),
     ]

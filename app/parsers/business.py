@@ -585,23 +585,6 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_credit_code() -> str:
-            fallback = ""
-            for line in all_lines:
-                for m in re.finditer(r"[0-9A-Za-z]{18}", line.text or ""):
-                    candidate = fix_credit_code(m.group())
-                    if _validate_uscc(candidate):
-                        return candidate
-                    if not fallback:
-                        fallback = candidate
-
-            if fallback:
-                return fallback
-
-            joined = "".join(line.text or "" for line in all_lines)
-            m = re.search(r"[0-9A-Za-z]{18}", joined)
-            if m:
-                return fix_credit_code(m.group())
-
             # 三证合一前营业执照使用 15 位纯数字“注册号”。只有检测到该
             # 标签时才接收 15 位数字，避免将日期、电话等误判为企业编号。
             registration_labels = ("注册号", "注册号码")
@@ -622,6 +605,24 @@ class BusinessParser:
                     candidate = fix_legacy_registration_number(match.group())
                     if _validate_legacy_registration_number(candidate):
                         return candidate
+
+            # 18 位统一社会信用代码有校验位，可安全地从全图搜索；但不能
+            # 将“证照编号”等任意 18 位数字作为信用代码返回。
+            labeled_fallback = ""
+            for line in all_lines:
+                compact = re.sub(r"\s+", "", line.text or "")
+                is_uscc_label_line = any(
+                    label in compact for label in ("统一社会信用代码", "社会信用代码", "信用代码")
+                )
+                for match in re.finditer(r"[0-9A-Za-z]{18}", compact):
+                    candidate = fix_credit_code(match.group())
+                    if _validate_uscc(candidate):
+                        return candidate
+                    if is_uscc_label_line and not labeled_fallback:
+                        labeled_fallback = candidate
+
+            if labeled_fallback:
+                return labeled_fallback
 
             return ""
 
