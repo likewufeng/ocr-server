@@ -874,7 +874,9 @@ class OCRService:
             return False
 
         joined_text = "".join(texts)
-        return "营业执照" in joined_text and "统一社会信用代码" in joined_text
+        return "营业执照" in joined_text and any(
+            label in joined_text for label in ("统一社会信用代码", "注册号", "注册号码")
+        )
 
     @staticmethod
     def _has_business_address_label(texts: list[str]) -> bool:
@@ -1165,7 +1167,8 @@ class OCRService:
                 continue
             compact = re.sub(r"\s+", "", text or "")
             if field == "credit_code" and any(
-                label in compact for label in ("统一社会信用代码", "社会信用代码", "信用代码")
+                label in compact
+                for label in ("统一社会信用代码", "社会信用代码", "信用代码", "注册号", "注册号码")
             ):
                 return index
             if field == "name" and ("名称" in compact or compact in {"名", "称"}):

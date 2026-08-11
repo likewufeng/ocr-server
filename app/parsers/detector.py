@@ -55,7 +55,11 @@ class DocumentDetector:
             return "id_back"
         
         # 2. 营业执照判定
-        if "营业执照" in all_text or "统一社会信用代码" in all_text:
+        if (
+            "营业执照" in all_text
+            or "统一社会信用代码" in all_text
+            or ("注册号" in all_text and "法定代表人" in all_text)
+        ):
             return "business_license"
             
         # 3. 补充判定：如果只有信用代码但没印“营业执照”四个字

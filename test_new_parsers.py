@@ -96,11 +96,28 @@ def test_business_field_roi_candidate_validation():
 
     assert _is_valid_business_field_value("credit_code", "91410000692152338A") is True
     assert _is_valid_business_field_value("credit_code", "91410000692152338B") is False
+    assert _is_valid_business_field_value("credit_code", "420102000415835") is True
+    assert _is_valid_business_field_value("credit_code", "42010200041583") is False
     assert _is_valid_business_field_value("name", "测试科技有限公司") is True
     assert _is_valid_business_field_value("name", "测试路1号") is False
     assert _is_valid_business_field_value("legal_person", "测试人员") is True
     assert _is_valid_business_field_value("legal_person", "测试市") is False
     print("Business-field ROI candidate validation test passed!")
+
+
+def test_business_license_with_legacy_registration_number():
+    print("\n--- Testing Business License With Legacy Registration Number ---")
+    lines = [
+        OCRLine(text="营业执照", left=300, top=20, right=500, bottom=60, score=0.99),
+        OCRLine(text="注册号", left=250, top=100, right=330, bottom=125, score=0.99),
+        OCRLine(text="420102000415835", left=345, top=100, right=560, bottom=125, score=0.99),
+        OCRLine(text="名称测试化学有限公司", left=250, top=145, right=560, bottom=170, score=0.99),
+        OCRLine(text="法定代表人测试人", left=250, top=190, right=500, bottom=215, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines))
+    assert result["type"] == "business_license"
+    assert result["credit_code"] == "420102000415835"
+    print("Business License Legacy Registration Number Test Passed!")
 
 
 def test_document_type_detects_bank_card_from_luhn_number():
@@ -1079,6 +1096,7 @@ if __name__ == "__main__":
     test_id_front_quality_retry_helpers()
     test_business_scope_roi_selection()
     test_business_field_roi_candidate_validation()
+    test_business_license_with_legacy_registration_number()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()
     test_business_license_with_missing_address_prefix()

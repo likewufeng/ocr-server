@@ -2,7 +2,7 @@
 营业执照解析器 v6 - 完整最终版
 
 已验证可正确解析的字段：
-  - 统一社会信用代码（含OCR修正+校验）
+  - 统一社会信用代码或旧版注册号（含OCR修正+校验）
   - 名称（处理OCR拆分）
   - 类型（处理OCR拆分）
   - 法定代表人（多策略+坐标扫描）
@@ -20,7 +20,7 @@ from app.utils.ocr_corrections import normalize_known_admin_text
 
 
 # ------------------------------------------------------------------ #
-#  统一社会信用代码工具                                                #
+#  企业编号工具                                                        #
 # ------------------------------------------------------------------ #
 
 _USCC_CHARSET = "0123456789ABCDEFGHJKLMNPQRTUWXY"
@@ -87,9 +87,31 @@ def fix_credit_code(raw: str) -> str:
     return "".join(chars)
 
 
+def fix_legacy_registration_number(raw: str) -> str:
+    """规范化三证合一前的 15 位营业执照注册号。"""
+    compact = re.sub(r"\s+", "", (raw or "").strip().upper())
+    if len(compact) != 15:
+        return compact
+
+    corrections = {
+        "O": "0", "I": "1", "L": "1", "S": "5", "Z": "2", "B": "8", "G": "6",
+    }
+    return "".join(corrections.get(char, char) for char in compact)
+
+
+def _validate_legacy_registration_number(code: str) -> bool:
+    """旧版营业执照注册号必须为 15 位纯数字。"""
+    return bool(re.fullmatch(r"\d{15}", code or ""))
+
+
 def is_valid_credit_code(raw: str) -> bool:
-    """Return whether a possibly OCR-noisy unified social credit code is valid."""
-    return _validate_uscc(fix_credit_code(raw or ""))
+    """校验统一社会信用代码或旧版注册号。
+
+    为保持接口兼容，旧版营业执照的 15 位注册号也填入 ``credit_code``。
+    """
+    return _validate_uscc(fix_credit_code(raw or "")) or _validate_legacy_registration_number(
+        fix_legacy_registration_number(raw or "")
+    )
 
 
 # ------------------------------------------------------------------ #
@@ -556,7 +578,7 @@ class BusinessParser:
             return prefix + addr
 
         # ---------------------------------------------------------- #
-        #  统一社会信用代码                                            #
+        #  统一社会信用代码 / 三证合一前注册号                         #
         # ---------------------------------------------------------- #
 
         def extract_credit_code() -> str:
@@ -574,7 +596,31 @@ class BusinessParser:
 
             joined = "".join(line.text or "" for line in all_lines)
             m = re.search(r"[0-9A-Za-z]{18}", joined)
-            return fix_credit_code(m.group()) if m else ""
+            if m:
+                return fix_credit_code(m.group())
+
+            # 三证合一前营业执照使用 15 位纯数字“注册号”。只有检测到该
+            # 标签时才接收 15 位数字，避免将日期、电话等误判为企业编号。
+            registration_labels = ("注册号", "注册号码")
+            for line in all_lines:
+                compact = re.sub(r"\s+", "", line.text or "")
+                label = next((item for item in registration_labels if item in compact), None)
+                if label is None:
+                    continue
+
+                candidates = [compact.split(label, 1)[1]]
+                candidates.extend(block.text or "" for block in same_row_right_blocks(line))
+                for text in candidates:
+                    match = re.search(
+                        r"[0-9OILSZBG]{15}", re.sub(r"\s+", "", text.upper())
+                    )
+                    if not match:
+                        continue
+                    candidate = fix_legacy_registration_number(match.group())
+                    if _validate_legacy_registration_number(candidate):
+                        return candidate
+
+            return ""
 
         data["credit_code"] = extract_credit_code()
 
