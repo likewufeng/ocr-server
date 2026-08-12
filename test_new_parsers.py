@@ -152,6 +152,86 @@ def test_business_license_split_name_and_overlapping_scope_row():
     print("Business License Split Name And Scope Row Overlap Test Passed!")
 
 
+def test_business_license_fragmented_labels_and_type_boundary():
+    print("\n--- Testing Business License Fragmented Labels And Type Boundary ---")
+    lines = [
+        OCRLine(text="名称测试有限公司", left=100, top=100, right=350, bottom=125, score=0.99),
+        OCRLine(text="类型", left=100, top=135, right=180, bottom=160, score=0.99),
+        OCRLine(text="测试有限公司有限责任公司(自然人投资或控股)测试市", left=210, top=135, right=650, bottom=160, score=0.99),
+        OCRLine(text="注册资", left=100, top=170, right=180, bottom=195, score=0.99),
+        OCRLine(text="本", left=185, top=170, right=205, bottom=195, score=0.99),
+        OCRLine(text="陆仟捌佰万圆整", left=220, top=170, right=350, bottom=195, score=0.99),
+        OCRLine(text="成立", left=100, top=205, right=150, bottom=230, score=0.99),
+        OCRLine(text="日", left=155, top=205, right=175, bottom=230, score=0.99),
+        OCRLine(text="期", left=180, top=205, right=200, bottom=230, score=0.99),
+        OCRLine(text="2016年12月06日", left=220, top=205, right=350, bottom=230, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["type_name"] == "有限责任公司(自然人投资或控股)"
+    assert result["capital"] == "陆仟捌佰万圆整"
+    assert result["establish_date"] == "2016年12月06日"
+    print("Business License Fragmented Labels And Type Boundary Test Passed!")
+
+
+def test_individual_business_name_operator_and_address_boundary():
+    print("\n--- Testing Individual Business Fields ---")
+    lines = [
+        OCRLine(text="经营者王文亚", left=100, top=100, right=260, bottom=125, score=0.99),
+        OCRLine(text="称宜兴市官林镇橙兮工艺品网店", left=100, top=140, right=420, bottom=165, score=0.99),
+        OCRLine(text="经营场所", left=100, top=180, right=190, bottom=205, score=0.99),
+        OCRLine(text="测试市测试路1号", left=220, top=180, right=400, bottom=205, score=0.99),
+        OCRLine(text="组成形式", left=100, top=220, right=190, bottom=245, score=0.99),
+        OCRLine(text="个人经营", left=220, top=220, right=300, bottom=245, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["name"] == "宜兴市官林镇橙兮工艺品网店"
+    assert result["legal_person"] == "王文亚"
+    assert result["address"] == "测试市测试路1号"
+    print("Individual Business Fields Test Passed!")
+
+
+def test_business_license_fragmented_scope_label_and_inline_date():
+    print("\n--- Testing Business License Fragmented Scope Label ---")
+    lines = [
+        OCRLine(text="成立", left=100, top=100, right=150, bottom=125, score=0.99),
+        OCRLine(text="日期2012年03月06日", left=155, top=100, right=330, bottom=125, score=0.99),
+        OCRLine(text="经", left=100, top=140, right=120, bottom=165, score=0.99),
+        OCRLine(text="营", left=125, top=140, right=145, bottom=165, score=0.99),
+        OCRLine(text="围", left=150, top=140, right=170, bottom=165, score=0.99),
+        OCRLine(text="测试产品销售", left=200, top=140, right=340, bottom=165, score=0.99),
+        OCRLine(text="依法经营", left=200, top=166, right=300, bottom=190, score=0.99),
+        OCRLine(text="登记机关", left=100, top=230, right=200, bottom=255, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["establish_date"] == "2012年03月06日"
+    assert result["business_scope"] == "测试产品销售依法经营"
+    print("Business License Fragmented Scope Label Test Passed!")
+
+
+def test_business_license_address_from_merged_suo_label():
+    print("\n--- Testing Business License Merged Address Label ---")
+    lines = [
+        OCRLine(text="名类住", left=100, top=100, right=125, bottom=180, score=0.99),
+        OCRLine(text="称型所", left=160, top=100, right=185, bottom=180, score=0.99),
+        OCRLine(text="测试市测试区测试路1号", left=220, top=140, right=430, bottom=165, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "测试市测试区测试路1号"
+    print("Business License Merged Address Label Test Passed!")
+
+
+def test_business_license_legal_person_ignores_capital_overlap():
+    print("\n--- Testing Business License Legal Person Overlap ---")
+    lines = [
+        OCRLine(text="法定代表人", left=71, top=442, right=162, bottom=466, score=0.99),
+        OCRLine(text="赵长洪", left=169, top=439, right=220, bottom=460, score=0.99),
+        OCRLine(text="伍拾万元整", left=167, top=464, right=249, bottom=488, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["legal_person"] == "赵长洪"
+    print("Business License Legal Person Overlap Test Passed!")
+
+
 def test_business_license_with_merged_vertical_labels_and_person_overlay():
     print("\n--- Testing Business License With Merged Labels And Person Overlay ---")
     lines = [
@@ -1155,6 +1235,11 @@ if __name__ == "__main__":
     test_business_license_with_legacy_registration_number()
     test_business_license_prefers_valid_uscc_over_legacy_registration_number()
     test_business_license_split_name_and_overlapping_scope_row()
+    test_business_license_fragmented_labels_and_type_boundary()
+    test_individual_business_name_operator_and_address_boundary()
+    test_business_license_fragmented_scope_label_and_inline_date()
+    test_business_license_address_from_merged_suo_label()
+    test_business_license_legal_person_ignores_capital_overlap()
     test_business_license_with_merged_vertical_labels_and_person_overlay()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()

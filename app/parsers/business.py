@@ -262,6 +262,8 @@ class BusinessParser:
                 return False
             if re.search(r"\d", t):
                 return False
+            if looks_like_capital(t):
+                return False
             bad_keywords = [
                 "层", "楼", "路", "街", "号", "市", "区", "省",
                 "镇", "村", "县", "道", "广场", "中心", "大厦",
@@ -275,13 +277,14 @@ class BusinessParser:
             return chinese_count >= 2
 
         def is_date_text(text: str) -> bool:
-            t = (text or "").strip()
+            t = re.sub(r"\s+", "", (text or "").strip())
             return bool(re.fullmatch(r"\d{4}年\d{1,2}月\d{1,2}日", t))
 
         def normalize_chinese_date(text: str) -> str:
-            m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", (text or "").strip())
+            normalized = re.sub(r"\s+", "", (text or "").strip())
+            m = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", normalized)
             if not m:
-                return (text or "").strip()
+                return normalized
             year, month, day = m.groups()
             return f"{year}年{int(month):02d}月{int(day):02d}日"
 
@@ -305,17 +308,34 @@ class BusinessParser:
             ]
             return any(suffix in t for suffix in company_suffixes)
 
+        def looks_like_business_name(text: str) -> bool:
+            t = (text or "").strip()
+            if looks_like_company_name(t):
+                return True
+            if len(t) < 4 or re.search(r"\d", t):
+                return False
+            individual_suffixes = (
+                "网店", "商店", "经营部", "服务部", "工作室", "店", "坊", "厂",
+            )
+            return any(t.endswith(suffix) for suffix in individual_suffixes)
+
+        def extract_company_type(text: str) -> str:
+            """Extract a legal entity type from OCR text that may contain nearby fields."""
+            t = (text or "").strip()
+            type_names = (
+                "其他有限责任公司", "有限责任公司", "股份有限公司", "个人独资企业",
+                "合伙企业", "农民专业合作社", "个体工商户", "非公司企业法人",
+                "全民所有制", "分公司",
+            )
+            pattern = r"({})(?:[（(][^（）()]{{0,40}}[）)])?".format(
+                "|".join(re.escape(name) for name in type_names)
+            )
+            match = re.search(pattern, t)
+            return match.group(0) if match else ""
+
         def looks_like_company_type(text: str) -> bool:
             """仅用于补偿“类型”标签漏字后的候选值校验。"""
-            t = (text or "").strip()
-            if len(t) < 4:
-                return False
-            type_keywords = (
-                "有限责任公司", "股份有限公司", "个人独资企业",
-                "合伙企业", "农民专业合作社", "个体工商户",
-                "非公司企业法人", "全民所有制", "分公司",
-            )
-            return any(keyword in t for keyword in type_keywords)
+            return bool(extract_company_type(text))
 
         def clean_addr_text(text: str) -> str:
             """
@@ -434,6 +454,47 @@ class BusinessParser:
 
             return result
 
+        def find_label_anchor(label_keywords):
+            """Find a label, including labels split into adjacent OCR blocks."""
+            line = find_contains(*label_keywords)
+            if line:
+                matched = next(label for label in label_keywords if label in line.text)
+                return line, {id(line)}, matched, ""
+
+            for anchor in all_lines:
+                anchor_text = (anchor.text or "").strip()
+                if not anchor_text:
+                    continue
+                blocks = [anchor] + same_row_right_blocks(
+                    anchor, tol=row_tol(anchor, 0.35)
+                )
+                previous = None
+                fragments = []
+                merged = ""
+                for block in blocks:
+                    text = (block.text or "").strip()
+                    if not text:
+                        continue
+                    if previous is not None and block.left - previous.right > max(30, base_h * 4):
+                        break
+                    merged += text
+                    fragments.append(block)
+                    for label in label_keywords:
+                        if label == merged:
+                            return anchor, {id(item) for item in fragments}, label, ""
+                        if merged.startswith(label):
+                            return (
+                                anchor,
+                                {id(item) for item in fragments},
+                                label,
+                                merged[len(label):],
+                            )
+                    if not any(label.startswith(merged) for label in label_keywords):
+                        break
+                    previous = block
+
+            return None, set(), "", ""
+
         def extract_row_value_by_label(label_keywords,
                                        validator=None,
                                        row_scale: float = 1.0):
@@ -442,18 +503,24 @@ class BusinessParser:
             1. 同块去标签
             2. 同行右侧取第一个满足条件的值
             """
-            line = find_contains(*label_keywords)
+            line, label_fragment_ids, matched_label, inline_value = find_label_anchor(
+                label_keywords
+            )
             if not line:
                 return ""
 
-            for kw in label_keywords:
-                if kw in line.text:
-                    remain = strip_label(line.text, kw)
-                    if remain and (validator is None or validator(remain)):
-                        return remain
+            if inline_value and (validator is None or validator(inline_value)):
+                return inline_value
+
+            if matched_label in line.text:
+                remain = strip_label(line.text, matched_label)
+                if remain and (validator is None or validator(remain)):
+                    return remain
 
             rights = same_row_right_blocks(line, tol=row_tol(line, row_scale))
             for block in rights:
+                if id(block) in label_fragment_ids:
+                    continue
                 text = (block.text or "").strip()
                 if not text:
                     continue
@@ -659,7 +726,7 @@ class BusinessParser:
                     if not raw.startswith("称"):
                         continue
                     candidate = raw[1:].lstrip(":：").strip()
-                    if looks_like_company_name(candidate):
+                    if looks_like_business_name(candidate):
                         return candidate
 
                 row_parts = collect_row_sequence(
@@ -685,9 +752,9 @@ class BusinessParser:
                     continue
                 if text.startswith("称"):
                     candidate = text[1:].lstrip(":：").strip()
-                    if looks_like_company_name(candidate):
+                    if looks_like_business_name(candidate):
                         return candidate
-                if looks_like_company_name(text) and not is_label_like(text):
+                if looks_like_business_name(text) and not is_label_like(text):
                     return text
 
             return ""
@@ -703,15 +770,17 @@ class BusinessParser:
                 line = find_contains(kw)
                 if line:
                     remain = strip_label(line.text, kw)
-                    if remain:
-                        return remain
+                    candidate = extract_company_type(remain)
+                    if candidate:
+                        return candidate
                     row_parts = collect_row_sequence(
                         same_row_right_blocks(line, tol=row_tol(line, 1.0))
                     )
                     if row_parts:
                         vals = [text for _, text in row_parts if not is_label_like(text)]
-                        if vals:
-                            return "".join(vals)
+                        candidate = extract_company_type("".join(vals))
+                        if candidate:
+                            return candidate
 
             # “类型”可能拆成“类”+“型”+值，也可能只识别出“型”+值。
             for label_text in ("类", "型"):
@@ -725,8 +794,8 @@ class BusinessParser:
                 )
                 if row_parts:
                     vals = [text for _, text in row_parts if not is_label_like(text)]
-                    candidate = "".join(vals)
-                    if looks_like_company_type(candidate):
+                    candidate = extract_company_type("".join(vals))
+                    if candidate:
                         return candidate
 
             # OCR 偶尔会把“类型”中的“类”漏掉，例如：
@@ -736,8 +805,13 @@ class BusinessParser:
                 match = re.match(r"^[型类](?:\s*型)?[\s:：]*(.+)$", text)
                 if not match:
                     continue
-                candidate = match.group(1).strip()
-                if looks_like_company_type(candidate):
+                candidate = extract_company_type(match.group(1))
+                if candidate:
+                    return candidate
+
+            for line in all_lines:
+                candidate = extract_company_type(line.text)
+                if candidate:
                     return candidate
 
             return ""
@@ -749,11 +823,11 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_legal_person() -> str:
-            line = find_contains("法定代表人", "负责人")
+            line = find_contains("法定代表人", "负责人", "经营者")
             if not line:
                 return ""
 
-            for kw in ("法定代表人", "负责人"):
+            for kw in ("法定代表人", "负责人", "经营者"):
                 if kw in line.text:
                     remain = strip_label(line.text, kw)
                     if remain and is_person_name(remain):
@@ -797,7 +871,7 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         data["capital"] = extract_row_value_by_label(
-            ("注册资本", "注册资金"),
+            ("注册资本", "注册资金", "生册资本"),
             validator=looks_like_capital,
             row_scale=1.0,
         )
@@ -899,6 +973,18 @@ class BusinessParser:
                         addr_anchor = line
                         break
 
+            # 某些竖排表头会把“所”并入“型所”等文本框。前面未找到完整
+            # 住所标签时，允许从含“所”的表头块向右寻找第一个地址值。
+            if not addr_parts:
+                for line in all_lines:
+                    if "所" not in (line.text or ""):
+                        continue
+                    first_text, first_block = collect_address_from_label(line)
+                    if first_text and looks_like_address(first_text):
+                        addr_parts.append(first_text)
+                        addr_anchor = first_block
+                        break
+
             # C. 尝试“住”
             if not addr_parts:
                 zhu_line = find_exact("住")
@@ -942,6 +1028,8 @@ class BusinessParser:
                 addr_anchor.top,
                 keywords=[
                     "经营范围", "登记机关", "市场监督",
+                    "市场监",
+                    "组成形式",
                     "法定代表人", "负责人", "注册资本", "注册资金",
                     "成立日期", "注册日期", "设立日期", "类型",
                     "国家企业信用信息公示系统网址", "国家市场监督管理总局监制",
@@ -961,6 +1049,8 @@ class BusinessParser:
                     continue
                 if not any(keyword in boundary_text for keyword in (
                     "经营范围", "登记机关", "市场监督", "法定代表人", "负责人",
+                    "市场监",
+                    "组成形式",
                     "注册资本", "注册资金", "成立日期", "注册日期", "设立日期", "类型",
                 )):
                     continue
@@ -975,6 +1065,8 @@ class BusinessParser:
 
             stop_keywords = [
                 "经营范围", "登记机关", "市场监督",
+                "市场监",
+                "组成形式",
                 "法定代表人", "负责人", "注册资本", "注册资金",
                 "法定代表", "注册资", "成立日", "注册日", "设立日", "类型",
                 "国家企业信用信息公示系统网址", "http", "https",
@@ -1034,6 +1126,8 @@ class BusinessParser:
                     seen.add(id(block))
 
             address = "".join(addr_parts)
+            # 证照副本页码常被贴在地址末尾识别为“（1）”等独立括号数字。
+            address = re.sub(r"[（(]\d+[）)]$", "", address)
 
             nearby_fragments = collect_nearby_address_fragments(addr_anchor, boundary_top)
             address = complete_address_prefix(
@@ -1052,15 +1146,24 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_business_scope() -> str:
-            scope_line = find_contains("经营范围")
+            scope_line, scope_label_ids, _, _ = find_label_anchor(
+                ("经营范围", "经营范", "经营围")
+            )
             if not scope_line:
                 return ""
 
             scope_parts = []
-            seen_ids = {id(scope_line)}
+            seen_ids = set(scope_label_ids)
 
-            if "经营范围" in scope_line.text:
-                remain = strip_label(scope_line.text, "经营范围")
+            scope_label = next(
+                (
+                    label for label in ("经营范围", "经营范", "经营围")
+                    if label in scope_line.text
+                ),
+                "",
+            )
+            if scope_label:
+                remain = strip_label(scope_line.text, scope_label)
                 if remain:
                     scope_parts.append(remain)
 
