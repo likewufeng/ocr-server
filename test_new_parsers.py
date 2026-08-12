@@ -232,6 +232,22 @@ def test_business_license_legal_person_ignores_capital_overlap():
     print("Business License Legal Person Overlap Test Passed!")
 
 
+def test_business_license_legal_person_with_chinese_numeral_surname():
+    print("\n--- Testing Business License Numeral Surname ---")
+    lines = [
+        OCRLine(text="法定代表人", left=100, top=100, right=200, bottom=125, score=0.99),
+        OCRLine(text="陆昌正", left=230, top=100, right=310, bottom=125, score=0.99),
+        OCRLine(text="经营者万娇燕", left=100, top=140, right=260, bottom=165, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["legal_person"] == "陆昌正"
+    operator_result = OCRParser().parse(
+        Layout(lines[1:]), document_type="business_license"
+    )
+    assert operator_result["legal_person"] == "万娇燕"
+    print("Business License Numeral Surname Test Passed!")
+
+
 def test_business_license_with_merged_vertical_labels_and_person_overlay():
     print("\n--- Testing Business License With Merged Labels And Person Overlay ---")
     lines = [
@@ -1240,6 +1256,7 @@ if __name__ == "__main__":
     test_business_license_fragmented_scope_label_and_inline_date()
     test_business_license_address_from_merged_suo_label()
     test_business_license_legal_person_ignores_capital_overlap()
+    test_business_license_legal_person_with_chinese_numeral_surname()
     test_business_license_with_merged_vertical_labels_and_person_overlay()
     test_document_type_detects_bank_card_from_luhn_number()
     test_ocr_cache_round_trip()

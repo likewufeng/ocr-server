@@ -294,7 +294,12 @@ class BusinessParser:
                 return False
             if is_date_text(t):
                 return False
-            return bool(re.search(r"[万亿圆元整壹贰叁肆伍陆柒捌玖拾佰仟零\d]", t))
+            # 单个“万”“陆”等字既可能是人名，也可能是金额的一部分。金额
+            # 判断至少需要数字、货币单位，或连续两个中文金额数字，不能仅凭
+            # 一个中文数字排除合法的法定代表人姓名。
+            return bool(re.search(
+                r"\d|[圆元整]|[壹贰叁肆伍陆柒捌玖拾佰仟零]{2,}", t
+            ))
 
         def looks_like_company_name(text: str) -> bool:
             t = (text or "").strip()
