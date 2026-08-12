@@ -4,7 +4,7 @@
 
 | 诊断结论 | 字段数 |
 | --- | ---: |
-| 原始OCR包含等价文本，优先排查标点或格式归一化 | 28 |
+| 原始OCR包含等价文本，优先排查标点或格式归一化 | 19 |
 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | 18 |
 | 原始OCR包含完整金标，优先排查解析或格式化边界 | 4 |
 
@@ -12,53 +12,44 @@
 
 | 图片 | 字段 | 诊断结论 | 本地产物目录 |
 | --- | --- | --- | --- |
-| 10.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\4fc06cff10ed42b796a28c1c5ef1ac06` |
-| 11.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\8c1d822a644249e8a3337ffbe27eeb08` |
-| 11.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\8c1d822a644249e8a3337ffbe27eeb08` |
-| 12.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\0705298694bb48ea802bc4d787fa2b5a` |
-| 13.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\65b93e6e24544f7f8052cffc10f71081` |
-| 13.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\65b93e6e24544f7f8052cffc10f71081` |
-| 14.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\2976c282cadf4f0cb3b3c082bf26cea3` |
-| 14.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\2976c282cadf4f0cb3b3c082bf26cea3` |
-| 15.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\65a15949b3df4012b40853999f5b604b` |
-| 15.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\65a15949b3df4012b40853999f5b604b` |
-| 16.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\4e5624b4c6ce4ce8a369d17981301556` |
-| 16.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\4e5624b4c6ce4ce8a369d17981301556` |
-| 17.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\c1b889048db04bd484aab3e22c36e061` |
-| 17.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\c1b889048db04bd484aab3e22c36e061` |
-| 18.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\95d125116c714261866e4781d21f7dd2` |
-| 18.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\95d125116c714261866e4781d21f7dd2` |
-| 19.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\34a8835cd5ea4f859fdf4ebb92f5d0c0` |
-| 19.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\34a8835cd5ea4f859fdf4ebb92f5d0c0` |
-| 2.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\16eef4b5c2f34162903b340f2642855c` |
-| 2.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\16eef4b5c2f34162903b340f2642855c` |
-| 20.jpg | 类型 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\36163eff5ad74315b610109f44f1c84b` |
-| 20.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\36163eff5ad74315b610109f44f1c84b` |
-| 27.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\f4167f0dfe934403b6639e1cc21cbb66` |
-| 28.jpg | 类型 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\94ea05354065472cb227a3ba06054fc6` |
-| 28.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\94ea05354065472cb227a3ba06054fc6` |
-| 3.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\b3593492a9714b04a89ad656ac9e2235` |
-| 31.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\0242bfbbbcdf4f0b8a85543ab5b62ab3` |
-| 31.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\0242bfbbbcdf4f0b8a85543ab5b62ab3` |
-| 32.jpg | 成立日期 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\e0411cacf2084bf29555660c86d0b947` |
-| 32.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\e0411cacf2084bf29555660c86d0b947` |
-| 33.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\dc55e25342aa427c9b20dafeffba36ad` |
-| 34.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\f7dbb262f33c4889928548c7f627a019` |
-| 34.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\f7dbb262f33c4889928548c7f627a019` |
-| 36.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\ce3bbf5127b84264b581549cfec9874f` |
-| 43.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\58341b40b92e4281a093272a380d323e` |
-| 44.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\cf85ef3d40284b6487d44523baf3815b` |
-| 46.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\c095ca90b9ff40ccb4727e671039d533` |
-| 49.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\0dd910b4a81a4f2cb7e6ce87a5c89059` |
-| 5.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\5840681a269b4bb99a3967eaeaa909f6` |
-| 50.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\102f4fbf04ce4ed39845964ea0066c15` |
-| 51.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\d04a45a4337e4162964e51547af7e101` |
-| 51.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\d04a45a4337e4162964e51547af7e101` |
-| 52.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\ef71c2a57f404192b56da127623b7d84` |
-| 54.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\5da4e062b7c94d3095136c24fa28138b` |
-| 56.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\d659716843224619ae40b29147f4ae6a` |
-| 56.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\d659716843224619ae40b29147f4ae6a` |
-| 60.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\ffc1de7301dc49509b9e616543a25fbb` |
-| 61.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\938020fdc90e48d28785ba10d1939da0` |
-| 63.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\062a5dd21c194fcd98bf63507e30df58` |
-| 9.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\cd2f3b2ea15f4c968621252afcc08f67` |
+| 10.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\a3cc352dc1474415ad0b41cbd3ab97fe` |
+| 11.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\491509c4494f42dc87e93fe3e27e02a0` |
+| 12.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\32d2e20bca544705b55d01136fbd96af` |
+| 13.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\f2a202097385445f9d43389483dbed1e` |
+| 14.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\fc9c3989104245789000cc826566cf3a` |
+| 15.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\e8d9e682d6b64f1a872143c2f8728a64` |
+| 16.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\852556d1c2e149c89bfb57dcb58a0a1f` |
+| 17.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\865f8a76c47041918250755a1e1a0ca7` |
+| 17.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\865f8a76c47041918250755a1e1a0ca7` |
+| 18.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\4d1d1db029504525988f50c4a4028e89` |
+| 19.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\ea78d4cb08c74556a293383536e99183` |
+| 2.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\a498ec8140024756a38f068319436ff4` |
+| 20.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\7907ebfb40fa46b083eecfde795838be` |
+| 27.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\55b4a7451928413592de157c0d66f560` |
+| 28.jpg | 类型 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\85d3e2ab45eb4a859e2b14736633a297` |
+| 28.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\85d3e2ab45eb4a859e2b14736633a297` |
+| 3.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\62ff111829c24c7299e7e5aba3400466` |
+| 31.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\6c58c6e08f2648b6a17e5553fa3cc3b9` |
+| 31.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\6c58c6e08f2648b6a17e5553fa3cc3b9` |
+| 32.jpg | 成立日期 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\6484d6b24d5740b5832080c057a3e118` |
+| 32.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\6484d6b24d5740b5832080c057a3e118` |
+| 33.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\64ba871dd8cb4662b49c9b5bde1e9f70` |
+| 34.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\77f102201c834d1296ae1804d6e073b2` |
+| 34.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\77f102201c834d1296ae1804d6e073b2` |
+| 36.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\95b502bce4bf4190a65b200a18f595b4` |
+| 43.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\209c452c761644aaa816d57218a4dcb6` |
+| 44.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\b2d3f5cd9a284cf6bb240fb3f5de03d0` |
+| 46.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\6f35ba32d0084666a89d3e40d67b3910` |
+| 49.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\1a44a2337d14416c8d93a2bb71550649` |
+| 5.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\3e7a6c3a92c14425abc743cf864b24c5` |
+| 50.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\f8b6bf4f8b6548b0bac34e0165e0bb4a` |
+| 51.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\1673ce53ad7b491b993735df2445e913` |
+| 51.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\1673ce53ad7b491b993735df2445e913` |
+| 52.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\9145e270c0f14cc0a7f768cb096b5819` |
+| 54.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\e3572e446e9141eabedd576d8b2e0014` |
+| 56.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\419b41d215dd468db202fe4b8a764a60` |
+| 56.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\419b41d215dd468db202fe4b8a764a60` |
+| 60.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\72f9d1e2fa544e79993a21672c05570f` |
+| 61.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\b512eccdf37948dca897f00f9faa9ee0` |
+| 63.jpg | 经营范围 | 原始OCR包含等价文本，优先排查标点或格式归一化 | `data\outputs\c80f2bbd1cb9442ab9fd94961db920ea` |
+| 9.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\b96fadcf90ed40ebbfa9869c90ccbae9` |
