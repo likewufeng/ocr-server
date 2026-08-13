@@ -414,6 +414,9 @@ class BusinessParser:
             }
             for wrong, right in corrections.items():
                 t = t.replace(wrong, right)
+            # 营业执照经营范围末尾常见固定表述。仅修复 OCR 漏掉开括号和
+            # “依”字的明确模式，不对普通业务正文做猜测性文字替换。
+            t = re.sub(r"(?<!依)法须经批准的项目", "（依法须经批准的项目", t)
             return t
 
         def collect_row_sequence(blocks,
@@ -1172,24 +1175,38 @@ class BusinessParser:
                 if remain:
                     scope_parts.append(remain)
 
-            boundary_top = find_boundary_top(
-                scope_line.top,
-                keywords=["登记机关", "市场监督", "国家企业信用信息公示系统网址"],
-                col_left=0,
-                col_right=doc_width,
-            )
-
             stop_keywords = [
-                "登记机关", "市场监督",
+                "登记机关", "登记机", "市场监督",
                 "国家企业信用信息公示系统网址", "http", "https",
             ]
 
             scope_candidates = []
             min_top = scope_line.top - row_tol(scope_line, 0.8)
             min_left = scope_line.right - base_h * 2
-            # 允许经营范围文本延伸至整行右侧，但其起点应仍在标签的同一内容栏。
-            # 这样可排除同一高度、另一栏的地址续行或其他字段。
-            max_left = min(doc_width, int(doc_width * 0.68), scope_line.right + base_h * 22)
+            # 使用经营范围首行正文的右边界确定内容栏。固定按整图比例截断会在
+            # 双栏版式中把左栏长文本的后续行误判为右栏，从而截断经营范围。
+            same_row_values = [
+                block for block in same_row_right_blocks(scope_line, tol=row_tol(scope_line, 0.8))
+                if id(block) not in seen_ids
+                and (block.text or "").strip()
+                and not is_label_like((block.text or "").strip())
+            ]
+            first_scope_value = next(
+                (
+                    block for block in same_row_values
+                    if block.left >= scope_line.right - base_h * 2
+                ),
+                None,
+            )
+            content_right = first_scope_value.right if first_scope_value else scope_line.right
+            max_left = min(doc_width, content_right + base_h * 2)
+
+            boundary_top = find_boundary_top(
+                scope_line.top,
+                keywords=["登记机关", "登记机", "市场监督", "国家企业信用信息公示系统网址", "变更"],
+                col_left=min_left,
+                col_right=max_left,
+            )
 
             for block in all_lines:
                 if id(block) in seen_ids:
@@ -1201,6 +1218,16 @@ class BusinessParser:
 
                 text = (block.text or "").strip()
                 if not text:
+                    continue
+
+                # OCR 常把“经/营/范/围”“住/所”等标签拆成独立块；这些块
+                # 位于经营范围同行时不能拼进正文。
+                if is_label_like(text) or text in {"经", "营", "范", "围"}:
+                    continue
+
+                # 竖排登记机关、市场监督等水印块可能与正文在纵向重叠。它们
+                # 通常远高于正常文字行且较短，不能作为经营范围内容。
+                if h(block) > max(base_h * 2.5, 60) and len(text) < 20:
                     continue
 
                 if (
@@ -1226,7 +1253,9 @@ class BusinessParser:
 
                 scope_candidates.append(block)
 
-            scope_candidates.sort(key=lambda block: (block.top, block.left))
+            # 同一视觉行的 OCR 块可能有不同高度，按顶部排序会把右侧块排到
+            # 左侧正文前。中心点更能还原人眼阅读顺序。
+            scope_candidates.sort(key=lambda block: (cy(block), block.left))
 
             prev = None
             for block in scope_candidates:

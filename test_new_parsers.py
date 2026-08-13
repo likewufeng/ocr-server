@@ -819,6 +819,47 @@ def test_business_license_scope_keeps_wide_lines():
     assert result["business_scope"] == "一般项目：软件开发、信息系统集成服务网络与信息安全软件开发"
     print("Business License Wide Scope Line Test Passed!")
 
+
+def test_business_scope_ignores_adjacent_labels_and_footer_watermarks():
+    print("\n--- Testing Business Scope Label And Footer Filtering ---")
+    lines = [
+        OCRLine(text="经营范围", left=100, top=100, right=190, bottom=125, score=0.99),
+        OCRLine(text="生产、销售：汽车刹车片", left=220, top=100, right=600, bottom=125, score=0.99),
+        OCRLine(text="住", left=720, top=100, right=740, bottom=125, score=0.99),
+        OCRLine(text="所", left=770, top=100, right=790, bottom=125, score=0.99),
+        OCRLine(text="货物或技术进出口", left=220, top=132, right=600, bottom=157, score=0.99),
+        OCRLine(text="变更登记机", left=800, top=145, right=830, bottom=240, score=0.99),
+        OCRLine(text="依法须经批准的项目", left=220, top=164, right=600, bottom=189, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["business_scope"] == "生产、销售：汽车刹车片货物或技术进出口依法须经批准的项目"
+    print("Business Scope Label And Footer Filtering Test Passed!")
+
+
+def test_business_scope_uses_content_column_not_document_ratio():
+    print("\n--- Testing Business Scope Content Column ---")
+    lines = [
+        OCRLine(text="经营范围", left=100, top=100, right=190, bottom=125, score=0.99),
+        OCRLine(text="第一行经营范围内容", left=220, top=100, right=920, bottom=125, score=0.99),
+        OCRLine(text="第二行经营范围内容", left=220, top=132, right=910, bottom=157, score=0.99),
+        OCRLine(text="第三行经营范围内容", left=220, top=164, right=900, bottom=189, score=0.99),
+        OCRLine(text="登记机关", left=1050, top=260, right=1140, bottom=285, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["business_scope"] == "第一行经营范围内容第二行经营范围内容第三行经营范围内容"
+    print("Business Scope Content Column Test Passed!")
+
+
+def test_business_scope_repairs_fixed_legal_notice_prefix():
+    print("\n--- Testing Business Scope Legal Notice Prefix ---")
+    lines = [
+        OCRLine(text="经营范围", left=100, top=100, right=190, bottom=125, score=0.99),
+        OCRLine(text="食品机械，.法须经批准的项目，经相关部门批准后方可开展经营活动.）", left=220, top=100, right=900, bottom=125, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert "（依法须经批准的项目" in result["business_scope"]
+    print("Business Scope Legal Notice Prefix Test Passed!")
+
 def test_id_front_with_split_id_label():
     print("\n--- Testing ID Front with Split ID Label ---")
     lines = [
@@ -1322,3 +1363,6 @@ if __name__ == "__main__":
     test_business_license_address_stops_before_following_fields()
     test_business_license_address_stops_before_truncated_label_value()
     test_business_license_scope_keeps_wide_lines()
+    test_business_scope_ignores_adjacent_labels_and_footer_watermarks()
+    test_business_scope_uses_content_column_not_document_ratio()
+    test_business_scope_repairs_fixed_legal_notice_prefix()
