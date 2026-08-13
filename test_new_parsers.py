@@ -630,6 +630,26 @@ def test_invoice_with_split_name_labels():
     assert result["seller_tax_id"] == "91110115781312345Y"
     print("VAT Invoice Split Labels Test Passed!")
 
+def test_limited_partnership_business_license_fields():
+    print("\n--- Testing Limited Partnership Business License ---")
+    lines = [
+        OCRLine(text="名称上海测试管理咨询中心（有限合伙）", left=80, top=100, right=560, bottom=130, score=0.99),
+        OCRLine(text="类型有限合伙企业", left=80, top=145, right=360, bottom=175, score=0.99),
+        OCRLine(text="主要经营场所", left=80, top=190, right=250, bottom=220, score=0.99),
+        OCRLine(text="执行事务合伙人", left=80, top=245, right=260, bottom=275, score=0.99),
+        OCRLine(text="测试投资管理企业（有限合伙）", left=280, top=240, right=680, bottom=275, score=0.99),
+        OCRLine(text="成立日期2017年04月07日", left=80, top=300, right=420, bottom=330, score=0.99),
+        OCRLine(text="经营范围企业管理咨询", left=80, top=355, right=420, bottom=385, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["name"] == "上海测试管理咨询中心（有限合伙）", result
+    assert result["type_name"] == "有限合伙企业", result
+    assert result["legal_person"] == "测试投资管理企业（有限合伙）", result
+    assert result["address"] == "", result
+    assert result["establish_date"] == "2017年04月07日", result
+    print("Limited Partnership Business License Test Passed!")
+
+
 def test_business_license_with_common_ocr_variants():
     print("\n--- Testing Business License with Common OCR Variants ---")
     lines = [
@@ -1452,6 +1472,7 @@ if __name__ == "__main__":
     test_invoice_with_typos()
     test_invoice_with_split_name_labels()
     test_business_license_with_common_ocr_variants()
+    test_limited_partnership_business_license_fields()
     test_business_license_with_missing_name_prefix()
     test_business_license_with_missing_type_label_character()
     test_business_license_with_split_missing_type_label_character()

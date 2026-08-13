@@ -309,9 +309,12 @@ class BusinessParser:
                 return False
             company_suffixes = [
                 "有限公司", "有限责任公司", "股份有限公司", "集团有限公司",
-                "公司", "合伙企业", "个人独资企业", "农民专业合作社",
+                "公司", "有限合伙企业", "普通合伙企业", "合伙企业",
+                "个人独资企业", "农民专业合作社",
             ]
-            return any(suffix in t for suffix in company_suffixes)
+            return any(suffix in t for suffix in company_suffixes) or t.endswith(
+                ("（有限合伙）", "(有限合伙)", "（普通合伙）", "(普通合伙)")
+            )
 
         def looks_like_business_name(text: str) -> bool:
             t = (text or "").strip()
@@ -329,7 +332,8 @@ class BusinessParser:
             t = (text or "").strip()
             type_names = (
                 "其他有限责任公司", "有限责任公司", "股份有限公司", "个人独资企业",
-                "合伙企业", "农民专业合作社", "个体工商户", "非公司企业法人",
+                "有限合伙企业", "普通合伙企业", "合伙企业", "农民专业合作社",
+                "个体工商户", "非公司企业法人",
                 "全民所有制", "分公司",
             )
             pattern = r"({})(?:[（(][^（）()]{{0,40}}[）)])?".format(
@@ -785,7 +789,10 @@ class BusinessParser:
 
             name_boundary_top = find_boundary_top(
                 0,
-                keywords=["法定代表人", "负责人", "住所", "经营范围"],
+                keywords=[
+                    "法定代表人", "负责人", "执行事务合伙人", "住所",
+                    "主要经营场所", "经营范围",
+                ],
             )
             for line in all_lines:
                 text = (line.text or "").strip()
@@ -864,20 +871,27 @@ class BusinessParser:
         # ---------------------------------------------------------- #
 
         def extract_legal_person() -> str:
-            line = find_contains("法定代表人", "负责人", "经营者")
+            line = find_contains(
+                "法定代表人", "负责人", "经营者", "执行事务合伙人"
+            )
             if not line:
                 return ""
 
-            for kw in ("法定代表人", "负责人", "经营者"):
+            executive_partner_label = "执行事务合伙人" in line.text
+            for kw in ("法定代表人", "负责人", "经营者", "执行事务合伙人"):
                 if kw in line.text:
                     remain = strip_label(line.text, kw)
                     if remain and is_person_name(remain):
+                        return remain
+                    if executive_partner_label and remain and looks_like_business_name(remain):
                         return remain
 
             rights = same_row_right_blocks(line, tol=row_tol(line, 1.0))
             for block in rights:
                 text = (block.text or "").strip()
                 if is_person_name(text):
+                    return text
+                if executive_partner_label and len(text) >= 4:
                     return text
 
                 # 浅色姓名有时会与企业名称水印叠加，OCR 结果表现为
@@ -901,6 +915,8 @@ class BusinessParser:
             ):
                 text = (block.text or "").strip()
                 if is_person_name(text):
+                    return text
+                if executive_partner_label and len(text) >= 4:
                     return text
 
             return ""
@@ -943,7 +959,13 @@ class BusinessParser:
             addr_parts = []
             addr_anchor = None
 
-            def collect_address_from_label(label_line, skip_exact=None, strip_prefixes=(), row_scale=1.2):
+            def collect_address_from_label(
+                label_line,
+                skip_exact=None,
+                strip_prefixes=(),
+                row_scale=1.2,
+                require_address_like=False,
+            ):
                 if not label_line:
                     return None, None
 
@@ -964,17 +986,21 @@ class BusinessParser:
                     if looks_like_address(cleaned):
                         return cleaned, block
 
-                for block, text in row_parts:
-                    cleaned = clean_addr_text(text)
-                    if cleaned:
-                        return cleaned, block
+                if not require_address_like:
+                    for block, text in row_parts:
+                        cleaned = clean_addr_text(text)
+                        if cleaned:
+                            return cleaned, block
 
                 return None, None
 
             # A. 完整标签
-            full_addr_line = find_contains("住所", "营业场所", "经营场所", "注册地址")
+            address_labels = (
+                "主要经营场所", "住所", "营业场所", "经营场所", "注册地址"
+            )
+            full_addr_line = find_contains(*address_labels)
             if full_addr_line:
-                for kw in ("住所", "营业场所", "经营场所", "注册地址"):
+                for kw in address_labels:
                     if kw in full_addr_line.text:
                         remain = strip_label(full_addr_line.text, kw)
                         if remain:
@@ -982,13 +1008,62 @@ class BusinessParser:
                             if cleaned:
                                 addr_parts.append(cleaned)
                                 addr_anchor = full_addr_line
-                            break
+                        # “主要经营场所”包含“经营场所”。最长标签命中后必须
+                        # 立即停止，不能把前缀“主要”误当成字段值。
+                        break
 
                 if not addr_parts:
-                    first_text, first_block = collect_address_from_label(full_addr_line)
+                    location_row_scale = (
+                        0.45 if "主要经营场所" in full_addr_line.text else 1.2
+                    )
+                    first_text, first_block = collect_address_from_label(
+                        full_addr_line,
+                        row_scale=location_row_scale,
+                        require_address_like="主要经营场所" in full_addr_line.text,
+                    )
                     if first_text:
                         addr_parts.append(first_text)
                         addr_anchor = first_block
+
+                # 合伙企业执照常将“主要经营场所”标签放在上一行、实际场所
+                # 值排在下一行且与标签左侧不对齐。作为完整地址标签的专用
+                # 兜底，只取紧邻下一行并在下一字段前停止。
+                if not addr_parts and "主要经营场所" in full_addr_line.text:
+                    for block in blocks_below(
+                        full_addr_line,
+                        top_max=full_addr_line.bottom + base_h * 2,
+                        col_left=full_addr_line.right - base_h,
+                        col_right=doc_width,
+                        max_count=4,
+                    ):
+                        text = (block.text or "").strip()
+                        if not text or "执行事务合伙人" in text:
+                            continue
+                        # 下一字段的值可能与该字段标签上下交错。若候选块同一
+                        # 视觉行左侧存在后续字段标签，就不能把它误作经营场所。
+                        is_next_field_value = any(
+                            candidate is not block
+                            and candidate.left < block.left
+                            and abs(cy(candidate) - cy(block)) <= row_tol(block, 0.8)
+                            and any(keyword in (candidate.text or "") for keyword in (
+                                "执行事务合伙人", "法定代表人", "负责人", "成立日期",
+                                "合伙期限", "经营范围",
+                            ))
+                            for candidate in all_lines
+                        )
+                        if is_next_field_value:
+                            continue
+                        cleaned = clean_addr_text(text)
+                        if looks_like_address(cleaned):
+                            addr_parts.append(cleaned)
+                            addr_anchor = block
+                            break
+
+                # 已识别到合伙企业专用字段标签但未读出可信场所值时，不能再
+                # 落入通用“所”标签兜底，否则容易把下一行执行事务合伙人值
+                # 错填为地址。宁可返回空，交给调用方按需人工核验。
+                if not addr_parts and "主要经营场所" in full_addr_line.text:
+                    return ""
 
             # B. 尝试“所”
             if not addr_parts:
@@ -1075,7 +1150,7 @@ class BusinessParser:
                     "经营范围", "登记机关", "市场监督",
                     "市场监",
                     "组成形式",
-                    "法定代表人", "负责人", "注册资本", "注册资金",
+                    "法定代表人", "负责人", "执行事务合伙人", "注册资本", "注册资金",
                     "成立日期", "注册日期", "设立日期", "类型",
                     "国家企业信用信息公示系统网址", "国家市场监督管理总局监制",
                 ],
@@ -1094,6 +1169,7 @@ class BusinessParser:
                     continue
                 if not any(keyword in boundary_text for keyword in (
                     "经营范围", "登记机关", "市场监督", "法定代表人", "负责人",
+                    "执行事务合伙人",
                     "市场监",
                     "组成形式",
                     "注册资本", "注册资金", "成立日期", "注册日期", "设立日期", "类型",
@@ -1112,7 +1188,7 @@ class BusinessParser:
                 "经营范围", "登记机关", "市场监督",
                 "市场监",
                 "组成形式",
-                "法定代表人", "负责人", "注册资本", "注册资金",
+                "法定代表人", "负责人", "执行事务合伙人", "注册资本", "注册资金",
                 "法定代表", "注册资", "成立日", "注册日", "设立日", "类型",
                 "国家企业信用信息公示系统网址", "http", "https",
             ]
