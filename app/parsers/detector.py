@@ -55,10 +55,20 @@ class DocumentDetector:
             return "id_back"
         
         # 2. 营业执照判定
+        business_entity_keywords = (
+            "营业执照", "统一社会信用代码", "注册号", "有限责任公司",
+            "股份有限公司", "合伙企业", "个人独资企业", "个体工商户",
+            "农民专业合作社", "非公司企业法人", "全民所有制", "分公司",
+        )
+        business_person_keywords = (
+            "法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人",
+        )
         if (
-            "营业执照" in all_text
-            or "统一社会信用代码" in all_text
-            or ("注册号" in all_text and "法定代表人" in all_text)
+            any(keyword in all_text for keyword in business_entity_keywords)
+            or (
+                any(keyword in all_text for keyword in business_person_keywords)
+                and any(keyword in all_text for keyword in ("名称", "类型", "住所", "经营范围"))
+            )
         ):
             return "business_license"
             

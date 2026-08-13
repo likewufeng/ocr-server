@@ -249,9 +249,9 @@ class BusinessParser:
                 "类型", "类", "型",
                 "注册资本", "注册资金",
                 "成立日期", "注册日期", "设立日期",
-                "法定代表人", "负责人",
+                "法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人",
                 "住所", "住", "所", "营业场所", "经营场所", "注册地址",
-                "经营范围", "登记机关",
+                "主要经营场所", "经营范围", "登记机关", "组成形式",
             ]
             t = (text or "").strip()
             return t in label_keywords
@@ -268,7 +268,7 @@ class BusinessParser:
                 "层", "楼", "路", "街", "号", "市", "区", "省",
                 "镇", "村", "县", "道", "广场", "中心", "大厦",
                 "公司", "企业", "名称", "类型", "住所", "法定", "代表",
-                "负责人", "注册", "资本", "成立", "日期", "营业", "期限",
+                "负责人", "经营者", "投资人", "执行事务合伙人", "注册", "资本", "成立", "日期", "营业", "期限",
                 "经营", "范围",
             ]
             if any(kw in t for kw in bad_keywords):
@@ -310,7 +310,7 @@ class BusinessParser:
             company_suffixes = [
                 "有限公司", "有限责任公司", "股份有限公司", "集团有限公司",
                 "公司", "有限合伙企业", "普通合伙企业", "合伙企业",
-                "个人独资企业", "农民专业合作社",
+                "个人独资企业", "农民专业合作社", "个体工商户", "分公司",
             ]
             return any(suffix in t for suffix in company_suffixes) or t.endswith(
                 ("（有限合伙）", "(有限合伙)", "（普通合伙）", "(普通合伙)")
@@ -324,6 +324,7 @@ class BusinessParser:
                 return False
             individual_suffixes = (
                 "网店", "商店", "经营部", "服务部", "工作室", "店", "坊", "厂",
+                "中心", "个体工商户",
             )
             return any(t.endswith(suffix) for suffix in individual_suffixes)
 
@@ -331,13 +332,15 @@ class BusinessParser:
             """Extract a legal entity type from OCR text that may contain nearby fields."""
             t = (text or "").strip()
             type_names = (
+                # 先匹配长类型，避免“有限责任公司分公司”被截断成
+                # “有限责任公司”，也兼容历史执照中的分支机构写法。
+                "股份有限公司分公司", "有限责任公司分公司", "非公司企业法人分支机构",
                 "其他有限责任公司", "有限责任公司", "股份有限公司", "个人独资企业",
                 "有限合伙企业", "普通合伙企业", "合伙企业", "农民专业合作社",
-                "个体工商户", "非公司企业法人",
-                "全民所有制", "分公司",
+                "个体工商户", "非公司企业法人", "全民所有制", "分支机构", "分公司",
             )
             pattern = r"({})(?:[（(][^（）()]{{0,40}}[）)])?".format(
-                "|".join(re.escape(name) for name in type_names)
+                "|".join(re.escape(name) for name in sorted(type_names, key=len, reverse=True))
             )
             match = re.search(pattern, t)
             return match.group(0) if match else ""
@@ -872,13 +875,13 @@ class BusinessParser:
 
         def extract_legal_person() -> str:
             line = find_contains(
-                "法定代表人", "负责人", "经营者", "执行事务合伙人"
+                "法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人"
             )
             if not line:
                 return ""
 
             executive_partner_label = "执行事务合伙人" in line.text
-            for kw in ("法定代表人", "负责人", "经营者", "执行事务合伙人"):
+            for kw in ("法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人"):
                 if kw in line.text:
                     remain = strip_label(line.text, kw)
                     if remain and is_person_name(remain):
@@ -1150,7 +1153,7 @@ class BusinessParser:
                     "经营范围", "登记机关", "市场监督",
                     "市场监",
                     "组成形式",
-                    "法定代表人", "负责人", "执行事务合伙人", "注册资本", "注册资金",
+                    "法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人", "注册资本", "注册资金",
                     "成立日期", "注册日期", "设立日期", "类型",
                     "国家企业信用信息公示系统网址", "国家市场监督管理总局监制",
                 ],
@@ -1169,7 +1172,7 @@ class BusinessParser:
                     continue
                 if not any(keyword in boundary_text for keyword in (
                     "经营范围", "登记机关", "市场监督", "法定代表人", "负责人",
-                    "执行事务合伙人",
+                    "经营者", "投资人", "执行事务合伙人",
                     "市场监",
                     "组成形式",
                     "注册资本", "注册资金", "成立日期", "注册日期", "设立日期", "类型",
@@ -1188,7 +1191,7 @@ class BusinessParser:
                 "经营范围", "登记机关", "市场监督",
                 "市场监",
                 "组成形式",
-                "法定代表人", "负责人", "执行事务合伙人", "注册资本", "注册资金",
+                "法定代表人", "负责人", "经营者", "投资人", "执行事务合伙人", "注册资本", "注册资金",
                 "法定代表", "注册资", "成立日", "注册日", "设立日", "类型",
                 "国家企业信用信息公示系统网址", "http", "https",
             ]

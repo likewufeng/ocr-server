@@ -664,6 +664,51 @@ def test_limited_partnership_business_license_fields():
     print("Limited Partnership Business License Test Passed!")
 
 
+def test_business_license_layout_families():
+    """Cover the ten supported business-license layout/entity families."""
+    cases = [
+        ("company", "有限责任公司", "测试科技有限公司", "法定代表人", "张三"),
+        ("partnership", "普通合伙企业", "测试咨询中心（普通合伙）", "执行事务合伙人", "李四"),
+        ("sole_prop", "个人独资企业", "测试商贸个人独资企业", "投资人", "王五"),
+        ("individual", "个体工商户", "测试百货店", "经营者", "赵六"),
+        ("cooperative", "农民专业合作社", "测试种植农民专业合作社", "法定代表人", "钱七"),
+        ("non_company", "非公司企业法人", "测试机械厂", "法定代表人", "孙八"),
+        ("state_owned", "全民所有制", "测试物资供应站", "负责人", "周九"),
+        ("branch", "有限责任公司分公司", "测试科技有限公司分公司", "负责人", "吴十"),
+        ("legacy", "有限责任公司", "测试旧版有限公司", "法定代表人", "郑一"),
+        ("copy", "股份有限公司", "测试股份有限公司", "法定代表人", "冯二"),
+    ]
+    for family, type_name, name, person_label, person in cases:
+        lines = [
+            OCRLine(text="营业执照", left=300, top=20, right=500, bottom=55, score=0.99),
+            OCRLine(text="统一社会信用代码91410000692152338A", left=80, top=80, right=600, bottom=105, score=0.99),
+            OCRLine(text="名称" + name, left=80, top=130, right=650, bottom=155, score=0.99),
+            OCRLine(text="类型" + type_name, left=80, top=180, right=500, bottom=205, score=0.99),
+            OCRLine(text=person_label + person, left=80, top=230, right=450, bottom=255, score=0.99),
+            OCRLine(text="住所河南省测试市测试区测试路1号", left=80, top=280, right=550, bottom=305, score=0.99),
+            OCRLine(text="成立日期2024年01月02日", left=80, top=330, right=400, bottom=355, score=0.99),
+            OCRLine(text="经营范围软件开发", left=80, top=380, right=400, bottom=405, score=0.99),
+        ]
+        result = OCRParser().parse(Layout(lines), document_type="business_license")
+        assert result["type_name"] == type_name, (family, result)
+        assert result["name"] == name, (family, result)
+        assert result["legal_person"] == person, (family, result)
+
+
+def test_business_license_layout_family_auto_detection():
+    from app.parsers.detector import DocumentDetector
+
+    for text in (
+        "名称测试百货店类型个体工商户经营者张三经营范围零售",
+        "名称测试农民专业合作社类型农民专业合作社负责人李四经营范围种植",
+        "名称测试供应站类型全民所有制负责人王五经营范围物资供应",
+        "名称测试科技分公司类型有限责任公司分公司负责人赵六经营范围技术服务",
+    ):
+        assert DocumentDetector().detect(Layout([
+            OCRLine(text=text, left=20, top=20, right=800, bottom=60, score=0.99)
+        ])) == "business_license", text
+
+
 def test_business_license_with_common_ocr_variants():
     print("\n--- Testing Business License with Common OCR Variants ---")
     lines = [
@@ -1487,6 +1532,8 @@ if __name__ == "__main__":
     test_invoice_with_split_name_labels()
     test_business_license_with_common_ocr_variants()
     test_limited_partnership_business_license_fields()
+    test_business_license_layout_families()
+    test_business_license_layout_family_auto_detection()
     test_business_license_with_missing_name_prefix()
     test_business_license_with_missing_type_label_character()
     test_business_license_with_split_missing_type_label_character()

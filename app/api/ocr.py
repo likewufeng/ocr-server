@@ -124,7 +124,10 @@ def _is_valid_business_field_value(field: str, value: object) -> bool:
     if field == "credit_code":
         return is_valid_credit_code(text)
     if field == "name":
-        suffixes = ("有限公司", "有限责任公司", "股份有限公司", "合伙企业", "个人独资企业", "农民专业合作社")
+        suffixes = (
+            "有限公司", "有限责任公司", "股份有限公司", "合伙企业",
+            "个人独资企业", "农民专业合作社", "个体工商户", "分公司",
+        )
         return len(text) >= 4 and not re.search(r"\d", text) and any(
             suffix in text for suffix in suffixes
         )
