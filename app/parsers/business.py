@@ -915,6 +915,10 @@ class BusinessParser:
                     return None, None
 
                 rights = same_row_right_blocks(label_line, tol=row_tol(label_line, row_scale))
+                # 地址首行和续行可能轻微上下重叠，且续行左边界偶尔比首行
+                # 早 1-2 像素。优先选择与“住所”标签中心线最接近的块，避免
+                # 将第二行误当作首行。
+                rights.sort(key=lambda block: (abs(cy(block) - cy(label_line)), block.left))
                 row_parts = collect_row_sequence(
                     rights,
                     gap_threshold=max(30, base_h * 4),
@@ -1091,20 +1095,43 @@ class BusinessParser:
 
             prev = addr_anchor
             seen = {id(addr_anchor)}
+            # 同一“住所”标签的拆分块不应成为地址续行，例如“住”在上一行、
+            # “所”在地址正文之后才被 OCR 返回的情况。
+            for label_fragment in all_lines:
+                if (label_fragment.text or "").strip() not in {"住", "所"}:
+                    continue
+                if abs(cy(label_fragment) - cy(addr_anchor)) <= row_tol(addr_anchor, 1.5):
+                    seen.add(id(label_fragment))
             seen_texts = {clean_addr_text(part) for part in addr_parts if part}
 
-            for block in blocks_below(
-                addr_anchor,
-                top_max=boundary_top,
-                col_left=addr_col_left,
-                col_right=addr_col_right,
-                max_count=10,
-            ):
+            # 地址续行经常与首行上下重叠，例如首行 bottom=276、续行
+            # top=274。blocks_below 要求 top >= 首行 bottom，会把这种
+            # 合法续行漏掉。地址专用收集允许轻微重叠，但仍沿用字段边界、
+            # 垂直间距和停止关键词约束，避免跨字段串入。
+            address_continuations = [
+                block for block in all_lines
+                if id(block) not in seen
+                and block.top > addr_anchor.top
+                and block.top < boundary_top
+                and block.left < addr_col_right
+                and block.right > addr_col_left
+            ]
+            address_continuations.sort(key=lambda block: (block.top, block.left))
+
+            for block in address_continuations[:10]:
                 if id(block) in seen:
                     continue
 
                 text = (block.text or "").strip()
                 if not text:
+                    continue
+
+                if is_label_like(text):
+                    continue
+
+                # 副本页码可能以独立“（1）”块紧邻地址出现，不能把它拼入
+                # 住所；同一正文块内的“1幢（8）”不走这里，会被保留。
+                if re.fullmatch(r"[（(]\d{1,3}[）)]", text):
                     continue
 
                 if block.top - prev.bottom > max(25, base_h * 3):
@@ -1134,9 +1161,9 @@ class BusinessParser:
                     seen.add(id(block))
 
             address = "".join(addr_parts)
-            # 证照副本页码常被贴在地址末尾识别为“（1）”等独立括号数字。
-            address = re.sub(r"[（(]\d+[）)]$", "", address)
-
+            # 旧版副本常将页码“（1）”贴在地址 OCR 文本块末尾。该模式是
+            # 页码而非地址正文；其他括号数字（如“1幢（8）”）必须保留。
+            address = re.sub(r"[（(]1[）)]$", "", address)
             nearby_fragments = collect_nearby_address_fragments(addr_anchor, boundary_top)
             address = complete_address_prefix(
                 address=address,

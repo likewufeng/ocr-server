@@ -98,6 +98,9 @@ def test_business_scope_accuracy_normalization():
     predicted = "软件开发;技术咨询.(依法须经批准的项目)"
     assert normalize("business_scope", gold) == normalize("business_scope", predicted)
     assert normalize("business_scope", "软件开发") != normalize("business_scope", "软件测试")
+    assert normalize("address", "上海市测试路1号（园区）") == normalize(
+        "address", "上海市测试路1号(园区)"
+    )
     print("Business-scope accuracy normalization test passed!")
 
 
@@ -807,6 +810,63 @@ def test_business_license_address_stops_before_truncated_label_value():
     print("Business License Address Truncated Boundary Test Passed!")
 
 
+def test_business_license_address_collects_overlapping_continuation():
+    print("\n--- Testing Business License Overlapping Address Continuation ---")
+    lines = [
+        OCRLine(text="住", left=85, top=263, right=105, bottom=281, score=0.99),
+        OCRLine(text="所", left=157, top=261, right=176, bottom=279, score=0.99),
+        OCRLine(text="深圳市宝安区福海街道塘尾华丰科技园第8", left=185, top=262, right=383, bottom=276, score=0.99),
+        OCRLine(text="幢第六层", left=184, top=274, right=232, bottom=292, score=0.99),
+        OCRLine(text="法定代表人", left=85, top=284, right=177, bottom=307, score=0.99),
+        OCRLine(text="常国强", left=185, top=287, right=222, bottom=302, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "深圳市宝安区福海街道塘尾华丰科技园第8幢第六层"
+    print("Business License Overlapping Address Continuation Test Passed!")
+
+
+def test_business_license_address_preserves_real_parenthesized_number():
+    print("\n--- Testing Business License Parenthesized Address Number ---")
+    lines = [
+        OCRLine(text="住", left=190, top=648, right=218, bottom=678, score=0.99),
+        OCRLine(text="所", left=310, top=650, right=338, bottom=676, score=0.99),
+        OCRLine(text="盐城市亭湖区南洋镇三尖居委会二组1幢（8）", left=356, top=640, right=861, bottom=678, score=0.99),
+        OCRLine(text="法定代表人", left=190, top=692, right=338, bottom=718, score=0.99),
+        OCRLine(text="陆昌正", left=356, top=688, right=439, bottom=720, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"].endswith("1幢（8）")
+    print("Business License Parenthesized Address Number Test Passed!")
+
+
+def test_business_license_address_ignores_standalone_copy_page_number():
+    print("\n--- Testing Business License Standalone Address Page Number ---")
+    lines = [
+        OCRLine(text="住所", left=100, top=100, right=160, bottom=125, score=0.99),
+        OCRLine(text="盐城市建军中路42号1幢411室", left=190, top=100, right=413, bottom=120, score=0.99),
+        OCRLine(text="（1）", left=420, top=100, right=460, bottom=120, score=0.99),
+        OCRLine(text="法定代表人", left=100, top=140, right=180, bottom=165, score=0.99),
+        OCRLine(text="孟令花", left=190, top=140, right=240, bottom=165, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "盐城市建军中路42号1幢411室"
+    print("Business License Standalone Address Page Number Test Passed!")
+
+
+def test_business_license_address_ignores_repeated_full_label():
+    print("\n--- Testing Business License Repeated Address Label ---")
+    lines = [
+        OCRLine(text="住所", left=200, top=100, right=300, bottom=129, score=0.99),
+        OCRLine(text="上海市金山区张堰镇松金公路2758号5幢B1152室", left=310, top=96, right=700, bottom=118, score=0.99),
+        OCRLine(text="住所", left=200, top=106, right=300, bottom=135, score=0.99),
+        OCRLine(text="法定代表人", left=200, top=145, right=300, bottom=170, score=0.99),
+        OCRLine(text="方祖林", left=310, top=145, right=370, bottom=170, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    assert result["address"] == "上海市金山区张堰镇松金公路2758号5幢B1152室"
+    print("Business License Repeated Address Label Test Passed!")
+
+
 def test_business_license_scope_keeps_wide_lines():
     print("\n--- Testing Business License Wide Scope Line ---")
     lines = [
@@ -1362,6 +1422,10 @@ if __name__ == "__main__":
     test_business_license_scope_order_with_tall_label()
     test_business_license_address_stops_before_following_fields()
     test_business_license_address_stops_before_truncated_label_value()
+    test_business_license_address_collects_overlapping_continuation()
+    test_business_license_address_preserves_real_parenthesized_number()
+    test_business_license_address_ignores_standalone_copy_page_number()
+    test_business_license_address_ignores_repeated_full_label()
     test_business_license_scope_keeps_wide_lines()
     test_business_scope_ignores_adjacent_labels_and_footer_watermarks()
     test_business_scope_uses_content_column_not_document_ratio()

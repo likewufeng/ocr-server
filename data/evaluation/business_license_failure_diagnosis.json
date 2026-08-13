@@ -1,8 +1,8 @@
 {
-  "failure_field_count": 15,
+  "failure_field_count": 9,
   "diagnosis_summary": {
-    "原始OCR与金标不一致，优先排查模型识别或保守纠错规则": 11,
-    "原始OCR包含完整金标，优先排查解析或格式化边界": 4
+    "原始OCR与金标不一致，优先排查模型识别或保守纠错规则": 8,
+    "原始OCR包含完整金标，优先排查解析或格式化边界": 1
   },
   "details": [
     {
@@ -10,105 +10,63 @@
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\489d221ea79748f8a6af750635062ce9"
-    },
-    {
-      "image_file": "17.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\4b80691cfefb4ddf93af177b5df99271"
+      "artifact_dir": "data\\outputs\\9c7e21d1b7cb47c08c0b0e79fb024172"
     },
     {
       "image_file": "17.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\4b80691cfefb4ddf93af177b5df99271"
+      "artifact_dir": "data\\outputs\\f35be7f7626d43bf96e58dfefc16fc1c"
     },
     {
       "image_file": "19.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\aee0ad67244a427d951a0e390aec8108"
+      "artifact_dir": "data\\outputs\\659fe9dd6de248539b7e0fcdcd4bde1c"
     },
     {
       "image_file": "20.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\fd98ad5eddc84c39ac57faf088cd13d4"
+      "artifact_dir": "data\\outputs\\ff5c400c39054a45934578fd814001f0"
     },
     {
       "image_file": "28.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\0c582ba194ea4702bef43ca6527a6535"
-    },
-    {
-      "image_file": "3.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR包含完整金标，优先排查解析或格式化边界",
-      "artifact_dir": "data\\outputs\\fa58852319bc49f89dca63f61507d702"
-    },
-    {
-      "image_file": "31.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR包含完整金标，优先排查解析或格式化边界",
-      "artifact_dir": "data\\outputs\\0304ee938bb44a3e86ac48b2a4f68f07"
-    },
-    {
-      "image_file": "34.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\1d14a13fe3f642bc94cb0adaab400b74"
+      "artifact_dir": "data\\outputs\\b1faa160ad054dc881742fe4a1abca5f"
     },
     {
       "image_file": "43.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\93164ddc292241a5960d3ec95e45e43f"
+      "artifact_dir": "data\\outputs\\a601240f40a84e3d9a0d77c77021f38b"
     },
     {
       "image_file": "44.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\60f508ccd3d34216a39d6f55177b7d50"
-    },
-    {
-      "image_file": "51.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\d1fd75aeb5a44004b4c4c4f9b212ee5f"
+      "artifact_dir": "data\\outputs\\e4e328c7cf12455a850ec450e6614ed8"
     },
     {
       "image_file": "56.jpg",
       "field": "address",
       "field_label": "住所",
       "diagnosis": "原始OCR包含完整金标，优先排查解析或格式化边界",
-      "artifact_dir": "data\\outputs\\bab5e6e9bc034c4eb11f34cd22a028f5"
+      "artifact_dir": "data\\outputs\\5c91250ed7044f7e89e042da20c320d5"
     },
     {
       "image_file": "56.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\bab5e6e9bc034c4eb11f34cd22a028f5"
-    },
-    {
-      "image_file": "9.jpg",
-      "field": "address",
-      "field_label": "住所",
-      "diagnosis": "原始OCR包含完整金标，优先排查解析或格式化边界",
-      "artifact_dir": "data\\outputs\\80429a46e721447296a36a3f9c582f6e"
+      "artifact_dir": "data\\outputs\\5c91250ed7044f7e89e042da20c320d5"
     }
   ]
 }

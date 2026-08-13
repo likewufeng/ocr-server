@@ -29,7 +29,7 @@ def normalize(field: str, value: object) -> str:
     text = re.sub(r"\s+", "", str(value or ""))
     if field == "credit_code":
         return re.sub(r"[^0-9A-Za-z]", "", text).upper()
-    if field == "type_name":
+    if field in {"type_name", "address"}:
         return text.translate(str.maketrans({"\uFF08": "(", "\uFF09": ")"}))
     if field == "business_scope":
         # 标点样式不影响经营范围所表达的业务内容；文字仍需逐字匹配。

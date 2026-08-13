@@ -4,25 +4,19 @@
 
 | 诊断结论 | 字段数 |
 | --- | ---: |
-| 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | 11 |
-| 原始OCR包含完整金标，优先排查解析或格式化边界 | 4 |
+| 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | 8 |
+| 原始OCR包含完整金标，优先排查解析或格式化边界 | 1 |
 
 ## 逐项清单
 
 | 图片 | 字段 | 诊断结论 | 本地产物目录 |
 | --- | --- | --- | --- |
-| 12.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\489d221ea79748f8a6af750635062ce9` |
-| 17.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\4b80691cfefb4ddf93af177b5df99271` |
-| 17.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\4b80691cfefb4ddf93af177b5df99271` |
-| 19.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\aee0ad67244a427d951a0e390aec8108` |
-| 20.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\fd98ad5eddc84c39ac57faf088cd13d4` |
-| 28.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\0c582ba194ea4702bef43ca6527a6535` |
-| 3.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\fa58852319bc49f89dca63f61507d702` |
-| 31.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\0304ee938bb44a3e86ac48b2a4f68f07` |
-| 34.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\1d14a13fe3f642bc94cb0adaab400b74` |
-| 43.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\93164ddc292241a5960d3ec95e45e43f` |
-| 44.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\60f508ccd3d34216a39d6f55177b7d50` |
-| 51.jpg | 住所 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\d1fd75aeb5a44004b4c4c4f9b212ee5f` |
-| 56.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\bab5e6e9bc034c4eb11f34cd22a028f5` |
-| 56.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\bab5e6e9bc034c4eb11f34cd22a028f5` |
-| 9.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\80429a46e721447296a36a3f9c582f6e` |
+| 12.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\9c7e21d1b7cb47c08c0b0e79fb024172` |
+| 17.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\f35be7f7626d43bf96e58dfefc16fc1c` |
+| 19.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\659fe9dd6de248539b7e0fcdcd4bde1c` |
+| 20.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\ff5c400c39054a45934578fd814001f0` |
+| 28.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\b1faa160ad054dc881742fe4a1abca5f` |
+| 43.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\a601240f40a84e3d9a0d77c77021f38b` |
+| 44.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\e4e328c7cf12455a850ec450e6614ed8` |
+| 56.jpg | 住所 | 原始OCR包含完整金标，优先排查解析或格式化边界 | `data\outputs\5c91250ed7044f7e89e042da20c320d5` |
+| 56.jpg | 经营范围 | 原始OCR与金标不一致，优先排查模型识别或保守纠错规则 | `data\outputs\5c91250ed7044f7e89e042da20c320d5` |
