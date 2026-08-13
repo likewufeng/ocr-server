@@ -920,6 +920,42 @@ def test_business_scope_repairs_fixed_legal_notice_prefix():
     assert "（依法须经批准的项目" in result["business_scope"]
     print("Business Scope Legal Notice Prefix Test Passed!")
 
+
+def test_business_scope_keeps_left_column_tail_in_two_column_layout():
+    print("\n--- Testing Business Scope Two Column Tail ---")
+    lines = [
+        OCRLine(
+            text="经营范围加工、安装、销售：工程塑料、",
+            left=150, top=500, right=720, bottom=530, score=0.99,
+        ),
+        OCRLine(
+            text="住所测试县测试镇1号",
+            left=900, top=505, right=1200, bottom=535, score=0.99,
+        ),
+        OCRLine(
+            text="电子设备销售；进出口本公司经营的业务",
+            left=320, top=535, right=740, bottom=565, score=0.99,
+        ),
+        OCRLine(
+            text="（依法须经批准的项目，经相关部门批准",
+            left=320, top=570, right=750, bottom=600, score=0.99,
+        ),
+        OCRLine(
+            text="后方可开展经营活动）",
+            left=320, top=605, right=550, bottom=635, score=0.99,
+        ),
+        OCRLine(
+            text="登记机关",
+            left=930, top=590, right=1090, bottom=625, score=0.99,
+        ),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="business_license")
+    scope = result["business_scope"]
+    assert "后方可开展经营活动" in scope, result
+    assert "测试县" not in scope, result
+    assert "登记机关" not in scope, result
+    print("Business Scope Two Column Tail Test Passed!")
+
 def test_id_front_with_split_id_label():
     print("\n--- Testing ID Front with Split ID Label ---")
     lines = [
@@ -1430,3 +1466,4 @@ if __name__ == "__main__":
     test_business_scope_ignores_adjacent_labels_and_footer_watermarks()
     test_business_scope_uses_content_column_not_document_ratio()
     test_business_scope_repairs_fixed_legal_notice_prefix()
+    test_business_scope_keeps_left_column_tail_in_two_column_layout()

@@ -393,6 +393,7 @@ class BusinessParser:
 
         def normalize_business_scope_text(text: str) -> str:
             t = (text or "").strip()
+            t = t.replace("[", "（").replace("]", "）")
             corrections = {
                 "许可项日": "许可项目",
                 "许可项H": "许可项目",
@@ -411,12 +412,44 @@ class BusinessParser:
                 "智使": "智能",
                 "不合教育": "不含教育",
                 "技术资询": "技术咨询",
+                # 仅处理经营范围中语义、字形都高度确定的 OCR 易错词，
+                # 不针对单个营业执照正文做硬编码补字。
+                "建航设装饰材料": "建筑及装饰材料",
+                "电线电缆金交电": "电线电缆、五金交电",
+                "电动工具抵兼营": "电动工具批零兼营",
+                "园林绿化工程路照明工程": "园林绿化工程、道路照明工程",
+                "依法须经润的项目": "依法须经审批的项目",
+                "医用核索设备": "医用核素设备",
             }
             for wrong, right in corrections.items():
                 t = t.replace(wrong, right)
             # 营业执照经营范围末尾常见固定表述。仅修复 OCR 漏掉开括号和
             # “依”字的明确模式，不对普通业务正文做猜测性文字替换。
             t = re.sub(r"(?<!依)法须经批准的项目", "（依法须经批准的项目", t)
+            # 老版营业执照尾注偶尔被拆到相邻视觉行。只有已经出现完整的
+            # 固定前缀且缺少末尾时才补全，避免对一般业务正文做臆测。
+            notice_prefix = "依法须经批准的项目，经相关部门批准后方可开展"
+            notice_at = t.rfind(notice_prefix)
+            if notice_at >= 0:
+                notice_tail = t[notice_at:]
+                # 只处理字段最后的残缺固定尾注，例如 OCR 识别为“...开展”
+                # 或“...开展经营活动]理”。超过该长度说明后面仍有正常正文。
+                if len(notice_tail) <= len(notice_prefix) + 6:
+                    has_opening = notice_at > 0 and t[notice_at - 1] in "（("
+                    t = (
+                        t[:notice_at]
+                        + ("" if has_opening else "（")
+                        + notice_prefix
+                        + "经营活动）"
+                    )
+            # 这是营业执照末尾的固定法定表述；只在整句结构明确、恰好缺少
+            # 中间短语时补全，避免将普通经营范围正文改写成模板文字。
+            t = t.replace(
+                "（依法须批准后方可开展经营活动）",
+                "（依法须经批准的项目，经相关部门批准后方可开展经营活动）",
+            )
+            if t.endswith("后方可开展经"):
+                t = t[:-1] + "经营活动）"
             return t
 
         def collect_row_sequence(blocks,
@@ -1189,6 +1222,7 @@ class BusinessParser:
 
             scope_parts = []
             seen_ids = set(scope_label_ids)
+            remain = ""
 
             scope_label = next(
                 (
@@ -1209,7 +1243,9 @@ class BusinessParser:
 
             scope_candidates = []
             min_top = scope_line.top - row_tol(scope_line, 0.8)
-            min_left = scope_line.right - base_h * 2
+            # 续行可能比标签右侧更短，不能以标签右边界作为列左界；以标签
+            # 左侧作为内容列下界，后续再通过标签和水印规则排除非正文。
+            min_left = max(0, scope_line.left - base_h * 2)
             # 使用经营范围首行正文的右边界确定内容栏。固定按整图比例截断会在
             # 双栏版式中把左栏长文本的后续行误判为右栏，从而截断经营范围。
             same_row_values = [
@@ -1218,13 +1254,20 @@ class BusinessParser:
                 and (block.text or "").strip()
                 and not is_label_like((block.text or "").strip())
             ]
-            first_scope_value = next(
-                (
-                    block for block in same_row_values
-                    if block.left >= scope_line.right - base_h * 2
-                ),
-                None,
-            )
+            first_scope_value = None
+            # 标签块本身已经包含首行正文时，它就是内容列的可靠锚点。不能再
+            # 误把双栏右侧的“住所”值视为同一行经营范围正文。
+            if not remain:
+                first_scope_value = next(
+                    (
+                        block for block in same_row_values
+                        # 双栏营业执照的右栏“住所”会与经营范围首行同高。正文
+                        # 通常紧贴标签右侧，按横向间隔筛掉跨栏字段值。
+                        if block.left >= scope_line.right - base_h * 2
+                        and block.left - scope_line.right <= max(base_h * 6, doc_width * 0.10)
+                    ),
+                    None,
+                )
             content_right = first_scope_value.right if first_scope_value else scope_line.right
             max_left = min(doc_width, content_right + base_h * 2)
 
@@ -1255,6 +1298,16 @@ class BusinessParser:
                 # 竖排登记机关、市场监督等水印块可能与正文在纵向重叠。它们
                 # 通常远高于正常文字行且较短，不能作为经营范围内容。
                 if h(block) > max(base_h * 2.5, 60) and len(text) < 20:
+                    continue
+
+                # 双栏版面中，右栏的“住所”或登记机关印章可能与左栏正文
+                # 同高。正文列以首行右边界为准，明显落在内容列外的短块不
+                # 参与拼接；宽正文仍可自然延伸到该列边界。
+                if (
+                    first_scope_value is not None
+                    and block.left > content_right + base_h * 2
+                    and len(text) < 40
+                ):
                     continue
 
                 if (

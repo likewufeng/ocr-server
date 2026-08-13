@@ -1,44 +1,29 @@
 {
-  "failure_field_count": 5,
+  "failure_field_count": 3,
   "diagnosis_summary": {
-    "原始OCR与金标不一致，优先排查模型识别或保守纠错规则": 4,
-    "原始OCR包含等价文本，优先排查标点或格式归一化": 1
+    "原始OCR与金标不一致，优先排查模型识别或保守纠错规则": 3
   },
   "details": [
     {
-      "image_file": "19.jpg",
+      "image_file": "30.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\1688354e5ba04157b82be3a20b766073"
-    },
-    {
-      "image_file": "20.jpg",
-      "field": "business_scope",
-      "field_label": "经营范围",
-      "diagnosis": "原始OCR包含等价文本，优先排查标点或格式归一化",
-      "artifact_dir": "data\\outputs\\bcf157c1417548b3a2454c4745e611a4"
+      "artifact_dir": "data\\outputs\\a7c1fa0223ee45f6bde8f0dc383020f8"
     },
     {
       "image_file": "43.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\214f459d5a7e4af99cfb2a28ed530533"
-    },
-    {
-      "image_file": "44.jpg",
-      "field": "business_scope",
-      "field_label": "经营范围",
-      "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\81c58e5682964994b7df3fe0adbf2669"
+      "artifact_dir": "data\\outputs\\15a5046e6488416296022abe64286686"
     },
     {
       "image_file": "56.jpg",
       "field": "business_scope",
       "field_label": "经营范围",
       "diagnosis": "原始OCR与金标不一致，优先排查模型识别或保守纠错规则",
-      "artifact_dir": "data\\outputs\\addc251c90fc43dfa61ddced13db7469"
+      "artifact_dir": "data\\outputs\\2b0d5ee536b2477da08a83eff90d6f3f"
     }
   ]
 }
