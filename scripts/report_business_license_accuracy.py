@@ -31,6 +31,9 @@ def normalize(field: str, value: object) -> str:
         return re.sub(r"[^0-9A-Za-z]", "", text).upper()
     if field == "type_name":
         return text.translate(str.maketrans({"\uFF08": "(", "\uFF09": ")"}))
+    if field == "business_scope":
+        # 标点样式不影响经营范围所表达的业务内容；文字仍需逐字匹配。
+        return re.sub(r"[,;:.()\[\]'\"\u3001\uFF0C\uFF1B\uFF1A\u3002\uFF08\uFF09\u3010\u3011\u2018\u2019\u201C\u201D]", "", text)
     if field == "establish_date":
         match = re.search(r"(\d{4})\D*(\d{1,2})\D*(\d{1,2})", text)
         if match:

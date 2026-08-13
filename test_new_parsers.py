@@ -91,6 +91,16 @@ def test_business_scope_roi_selection():
     print("Business-scope ROI selection test passed!")
 
 
+def test_business_scope_accuracy_normalization():
+    from scripts.report_business_license_accuracy import normalize
+
+    gold = "软件开发；技术咨询。（依法须经批准的项目）"
+    predicted = "软件开发;技术咨询.(依法须经批准的项目)"
+    assert normalize("business_scope", gold) == normalize("business_scope", predicted)
+    assert normalize("business_scope", "软件开发") != normalize("business_scope", "软件测试")
+    print("Business-scope accuracy normalization test passed!")
+
+
 def test_business_field_roi_candidate_validation():
     from app.api.ocr import _is_valid_business_field_value
 
@@ -1247,6 +1257,7 @@ if __name__ == "__main__":
     test_id_front_unwarping_is_document_specific()
     test_id_front_quality_retry_helpers()
     test_business_scope_roi_selection()
+    test_business_scope_accuracy_normalization()
     test_business_field_roi_candidate_validation()
     test_business_license_with_legacy_registration_number()
     test_business_license_prefers_valid_uscc_over_legacy_registration_number()
