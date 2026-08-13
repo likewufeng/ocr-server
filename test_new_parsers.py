@@ -105,7 +105,11 @@ def test_business_scope_accuracy_normalization():
 
 
 def test_business_field_roi_candidate_validation():
-    from app.api.ocr import _is_valid_business_field_value
+    from app.api.ocr import (
+        _complete_uscc_candidate,
+        _is_valid_business_field_value,
+        _select_business_address_candidate,
+    )
 
     assert _is_valid_business_field_value("credit_code", "91410000692152338A") is True
     assert _is_valid_business_field_value("credit_code", "91410000692152338B") is False
@@ -115,6 +119,16 @@ def test_business_field_roi_candidate_validation():
     assert _is_valid_business_field_value("name", "测试路1号") is False
     assert _is_valid_business_field_value("legal_person", "测试人员") is True
     assert _is_valid_business_field_value("legal_person", "测试市") is False
+    assert _is_valid_business_field_value("address", "上海市崇明区横沙乡富民支路58号D1-8030室") is True
+    assert _is_valid_business_field_value("address", "执行事务合伙人测试企业") is False
+    assert _complete_uscc_candidate("310230MA1JY6WQ44") == "91310230MA1JY6WQ44"
+    assert _select_business_address_candidate([
+        "上海市级明区横沙乡区民支路号P室",
+        "执行事务合伙人测试企业",
+    ]) == "上海市级明区横沙乡区民支路号P室"
+    assert _select_business_address_candidate([
+        ("上海市测试区测试路1号", 0.89),
+    ]) == ""
     print("Business-field ROI candidate validation test passed!")
 
 

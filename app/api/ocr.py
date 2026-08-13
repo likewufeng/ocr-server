@@ -19,7 +19,7 @@ from app.config import (
     UPLOAD_DIR,
 )
 from app.parsers.parser import OCRParser
-from app.parsers.business import is_valid_credit_code
+from app.parsers.business import fix_credit_code, is_valid_credit_code
 from app.schemas.response import ApiResponse
 from app.services.ocr_service import ocr_service
 from app.utils.layout import build_layout
@@ -134,7 +134,54 @@ def _is_valid_business_field_value(field: str, value: object) -> bool:
         if not all("\u4e00" <= char <= "\u9fff" for char in text):
             return False
         return not any(token in text for token in ("省", "市", "区", "县", "路", "楼", "层", "公司"))
+    if field == "address":
+        if len(text) < 6 or not any("\u4e00" <= char <= "\u9fff" for char in text):
+            return False
+        if any(token in text for token in ("经营范围", "执行事务合伙人", "法定代表人")):
+            return False
+        return any(token in text for token in ("省", "市", "区", "县", "乡", "镇", "路", "号", "室", "村", "园区"))
     return False
+
+
+def _select_business_address_candidate(value: object) -> str:
+    """Keep the most address-like line from a field ROI OCR result."""
+    if isinstance(value, (list, tuple)):
+        candidates = value
+    else:
+        candidates = [value]
+    valid = []
+    for item in candidates:
+        if isinstance(item, tuple):
+            raw_text, score = item
+            if float(score) < 0.9:
+                continue
+        else:
+            raw_text = item
+        text = re.sub(r"\s+", "", str(raw_text or ""))
+        text = re.sub(r"^(主要经营场所|住所|营业场所|经营场所|注册地址)[:：]?", "", text)
+        if not text or any(token in text for token in ("执行事务合伙人", "法定代表人", "成立日期", "合伙期限")):
+            continue
+        if _is_valid_business_field_value("address", text):
+            valid.append(text)
+    return max(valid, key=len, default="")
+
+
+def _complete_uscc_candidate(value: object) -> str:
+    """Recover a narrowly missed enterprise prefix when the check digit agrees."""
+    compact = re.sub(r"\s+", "", str(value or "")).upper()
+    if len(compact) == 16:
+        candidate = "91" + compact
+        return candidate if is_valid_credit_code(candidate) else ""
+    if len(compact) != 17:
+        return ""
+    charset = "0123456789ABCDEFGHJKLMNPQRTUWXY"
+    candidates = set()
+    for position in range(len(compact) + 1):
+        for first in charset:
+            candidate = compact[:position] + first + compact[position:]
+            if is_valid_credit_code(candidate):
+                candidates.add(candidate)
+    return next(iter(candidates)) if len(candidates) == 1 else ""
 
 
 async def _recognize(
@@ -288,7 +335,7 @@ async def ocr(
 
         missing_business_fields = [
             field
-            for field in ("credit_code", "name", "legal_person")
+            for field in ("credit_code", "name", "legal_person", "address")
             if not document.get(field)
         ]
         if (
@@ -314,6 +361,25 @@ async def ocr(
                 candidate = parser.parse(
                     build_layout(crop_result), document_type="business_license"
                 ).get(field)
+                if field == "address":
+                    candidate = _select_business_address_candidate(
+                        zip(
+                            crop_result.get("texts") or [],
+                            crop_result.get("scores") or [],
+                        )
+                    )
+                if field == "credit_code" and not is_valid_credit_code(candidate or ""):
+                    candidate = ""
+                    for text in crop_result.get("texts") or []:
+                        for match in re.findall(r"[0-9A-Za-z]{16,18}", text or ""):
+                            normalized = fix_credit_code(match)
+                            if is_valid_credit_code(normalized):
+                                candidate = normalized
+                                break
+                        if not candidate:
+                            candidate = _complete_uscc_candidate(match)
+                        if candidate:
+                            break
                 recovery["candidate_valid"] = _is_valid_business_field_value(
                     field, candidate
                 )

@@ -1177,7 +1177,55 @@ class OCRService:
                 label in compact for label in ("法定代表人", "负责人")
             ):
                 return index
+            if field == "address" and any(
+                label in compact
+                for label in ("主要经营场所", "住所", "营业场所", "经营场所", "注册地址")
+            ):
+                return index
         return None
+
+    @staticmethod
+    def _business_field_fallback_bounds(
+        field: str,
+        texts: list[str],
+        boxes: list[list],
+        image_width: int,
+        image_height: int,
+    ) -> Optional[tuple[int, int, int, int]]:
+        """Return conservative template bounds when a printed label was missed."""
+        if field != "credit_code":
+            return None
+
+        # The USCC/registration-number row is in the upper-right area of the
+        # standard Chinese business-license layout. Use detected content rows
+        # to keep the crop adaptive, while leaving room for a red stamp.
+        name_top = min(
+            (int(box[1]) for text, box in zip(texts, boxes)
+             if len(box) >= 4 and "名称" in re.sub(r"\s+", "", text or "")),
+            default=int(image_height * 0.27),
+        )
+        # The code row is immediately above the name row on the standard
+        # layout. Keep the interval wide enough for a missed detector box.
+        top = max(0, name_top - max(78, image_height // 14))
+        bottom = min(image_height, name_top - max(5, image_height // 80))
+        left = int(image_width * 0.40)
+        right = int(image_width * 0.99)
+        return left, top, right, bottom
+
+    @staticmethod
+    def _suppress_red_stamp(image: np.ndarray) -> np.ndarray:
+        """Remove red seal pixels while retaining black printed characters."""
+        if image is None or image.ndim != 3 or image.shape[2] < 3:
+            return image
+        b, g, r = cv2.split(image[:, :, :3])
+        red = (
+            (r > 75)
+            & (r.astype(np.int16) - g.astype(np.int16) > 22)
+            & (r.astype(np.int16) - b.astype(np.int16) > 18)
+        )
+        result = image.copy()
+        result[red] = (255, 255, 255)
+        return result
 
     @staticmethod
     def _business_field_crop_bounds(
@@ -1194,6 +1242,11 @@ class OCRService:
             crop_right = min(image_width, right + max(360, int(width * 1.8)))
             crop_top = max(0, top - int(height * 0.8))
             crop_bottom = min(image_height, bottom + max(110, int(height * 3.8)))
+        elif field == "address":
+            crop_left = min(image_width, right + 5)
+            crop_right = image_width
+            crop_top = max(0, top - int(height * 0.35))
+            crop_bottom = min(image_height, bottom + int(height * 0.1))
         else:
             crop_left = max(0, left - int(height * 0.5))
             crop_right = min(image_width, right + max(260, int(width * 3.2)))
@@ -1222,18 +1275,27 @@ class OCRService:
         for field in fields:
             anchor_index = self._business_field_anchor_index(texts, boxes, field)
             if anchor_index is None:
-                metadata["results"][field] = {"reason": "label_not_found"}
-                continue
-            crop_left, crop_top, crop_right, crop_bottom = self._business_field_crop_bounds(
-                field, boxes[anchor_index], image_width, image_height
-            )
+                fallback = self._business_field_fallback_bounds(
+                    field, texts, boxes, image_width, image_height
+                )
+                if fallback is None:
+                    metadata["results"][field] = {"reason": "label_not_found"}
+                    continue
+                crop_left, crop_top, crop_right, crop_bottom = fallback
+                crop_source = "template_fallback"
+            else:
+                crop_left, crop_top, crop_right, crop_bottom = self._business_field_crop_bounds(
+                    field, boxes[anchor_index], image_width, image_height
+                )
+                crop_source = "label_anchor"
             if crop_right <= crop_left or crop_bottom <= crop_top:
                 metadata["results"][field] = {"reason": "invalid_crop_bounds"}
                 continue
             metadata["attempted_fields"].append(field)
             crop = image[crop_top:crop_bottom, crop_left:crop_right]
+            cleaned_crop = self._suppress_red_stamp(crop)
             enlarged_crop = cv2.resize(
-                crop,
+                cleaned_crop,
                 None,
                 fx=OCR_BUSINESS_FIELD_ROI_SCALE,
                 fy=OCR_BUSINESS_FIELD_ROI_SCALE,
@@ -1285,6 +1347,7 @@ class OCRService:
                     break
                 metadata["results"][field] = {
                     "reason": "ok",
+                    "source": crop_source,
                     "recognized_line_count": len(recovered["texts"]),
                     "ocr_result": recovered,
                 }
