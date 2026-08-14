@@ -138,6 +138,25 @@ OCR_ID_FRONT_MIN_SCORE = min(
 )
 
 
+# ---------- 授权委托书 ----------
+# PDF 渲染分辨率。180 DPI 能兼顾扫描件小字、身份证附件和 GPU 推理耗时。
+AUTHORIZATION_RENDER_DPI = min(
+    300, max(120, int(os.getenv("AUTHORIZATION_RENDER_DPI", "180")))
+)
+
+# 原生文本少于该字符数时，认为页面主要是扫描图并调用 OCR。文本型 PDF
+# 直接使用 PDF 字符层，避免每一页都做无意义的整页推理。
+AUTHORIZATION_NATIVE_TEXT_MIN_CHARS = max(
+    1, int(os.getenv("AUTHORIZATION_NATIVE_TEXT_MIN_CHARS", "80"))
+)
+
+# 授权书扫描件、手写附近文字和身份证复印件容易出现浅色字符，使用比通用
+# /ocr 默认值略低的门槛；后续仍由字段规则和身份证版面解析器约束。
+AUTHORIZATION_OCR_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("AUTHORIZATION_OCR_MIN_SCORE", "0.35")))
+)
+
+
 # ---------- 文档方向与形变预处理 ----------
 # 控制方向模型是否在 pipeline 初始化时加载。
 OCR_ENABLE_DOC_ORIENTATION_MODEL = _env_bool(

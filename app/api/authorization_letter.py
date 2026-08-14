@@ -1,242 +1,223 @@
-# -*- coding: utf-8 -*-
-#Author: WuFeng <763467339@qq.com>
-#Date: 2026-07-13 17:04:40
-#LastEditTime: 2026-07-14 11:18:08
-#LastEditors: WuFeng <763467339@qq.com>
-#Description: 授权书接口
-#FilePath: /ocr-server/app/api/authorization_letter.py
-#Copyright 版权声明
-#
-"""
-授权委托书 PDF 解析 API
+"""授权委托书解析 API。"""
 
-提供授权委托书 PDF 文件的解析接口，提取关键信息。
-"""
+import hashlib
+import json
+import re
+from pathlib import Path
+from typing import Optional, Set, Tuple
 
-import asyncio
-import os
-import tempfile
+import fitz
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from starlette.concurrency import run_in_threadpool
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-
-from app.schemas.response import ApiResponse
+from app.config import OUTPUT_DIR, UPLOAD_DIR
 from app.parsers.authorization_letter import AuthorizationLetterParser
-from app.services.ocr_service import ocr_service
+from app.schemas.response import ApiResponse
+from app.services.authorization_letter_service import authorization_letter_service
+from app.utils.logger import logger
+from app.utils.request_context import get_request_id
+
 
 router = APIRouter(prefix="/authorization", tags=["Authorization Letter"])
-
-# 创建解析器实例
-parser = AuthorizationLetterParser(ocr_service=ocr_service)
-
-
-@router.post("/letter/parse")
-async def parse_authorization_letter(file: UploadFile = File(...)):
-    """
-    解析授权委托书 PDF 文件
-    
-    接受 PDF 文件上传，提取以下关键信息：
-    - 委托人
-    - 委托人身份证
-    - 委托人地址
-    - 委托人联系电话
-    - 受托人
-    - 受托人身份证
-    - 有效期
-    - 签署日期
-    - 受托人签字（需要人工确认）
-    - 受托人身份证正反面（需要人工确认）
-    
-    返回结构化 JSON 数据。
-    
-    **注意：使用 PyPDF2 提取文本，仅适用于文本 PDF**
-    """
-    # 创建临时文件
-    suffix = file.filename.split(".")[-1].lower()
-    
-    # 验证文件类型
-    if suffix != "pdf":
-        raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
-    
-    # 保存临时文件
-    with tempfile.NamedTemporaryFile(suffix=f".{suffix}", delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
-    
-    try:
-        # 解析 PDF
-        result = parser.parse_pdf(tmp_path)
-        
-        # 格式化结果
-        formatted_result = parser.to_dict(result)
-        
-        return ApiResponse.success(formatted_result)
-        
-    except Exception as e:
-        return ApiResponse.error(f"解析失败: {str(e)}")
-    finally:
-        # 清理临时文件
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except:
-                pass
+text_parser = AuthorizationLetterParser()
+SUPPORTED_DOCUMENT_SUFFIXES = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
 
 
-@router.post("/letter/parse-text")
-async def parse_authorization_letter_text(text: str):
-    """
-    解析授权委托书文本内容
-    
-    接受文本内容，提取关键信息。
-    适用于已经提取出文本的 PDF。
-    
-    **注意：使用 PyPDF2 提取文本，仅适用于文本 PDF**
-    """
-    try:
-        # 直接解析文本
-        result = parser.parse_text_content(text)
-        formatted_result = parser.to_dict({"data": result, "metadata": {}})
-        return ApiResponse.success(formatted_result)
-    except Exception as e:
-        return ApiResponse.error(f"解析失败: {str(e)}")
+def _safe_suffix(filename: Optional[str]) -> str:
+    suffix = Path((filename or "").replace("\\", "/")).suffix.lower()
+    return suffix if re.fullmatch(r"\.[a-z0-9]{1,10}", suffix) else ".bin"
 
 
+async def _persist_upload(
+    file: UploadFile, request_id: str, allowed_suffixes: Set[str]
+) -> Tuple[Path, Path, int]:
+    suffix = _safe_suffix(file.filename)
+    if suffix not in allowed_suffixes:
+        allowed = "、".join(sorted(value.lstrip(".").upper() for value in allowed_suffixes))
+        raise HTTPException(status_code=400, detail=f"仅支持 {allowed} 文件")
 
-
-
-@router.post("/letter/parse-ocr")
-async def parse_authorization_letter_ocr(file: UploadFile = File(...)):
-    """
-    解析授权委托书 PDF 文件 - 使用 OCR 布局分析
-    
-    接受 PDF/图片 文件上传，使用 PaddleX OCR 与布局分析，返回完整的结构化结果：
-    - 布局分析结果（每个文本块的内容、位置、类型）
-    - Markdown 格式文本
-    - 图片信息（印章、身份证扫描件等）
-    - 原始图片链接
-    
-    **适用场景：**
-    - 扫描图片 PDF
-    - 需要布局信息的场景
-    - 需要识别图片内容（印章、签名、身份证等）
-    
-    **注意：使用 PaddleX OCR，适用于所有 PDF，包括扫描图片 PDF**
-    """
-    import tempfile
-    
-    suffix = file.filename.split(".")[-1].lower()
-    
-    # 验证文件类型
-    if suffix not in ["pdf", "jpg", "jpeg", "png", "webp"]:
-        raise HTTPException(status_code=400, detail="仅支持 PDF/JPG/PNG 文件")
-    
-    # 读取文件内容
-    file_content = await file.read()
-    file_size = len(file_content)
-    
-    # 保存临时文件
-    with tempfile.NamedTemporaryFile(suffix=f".{suffix}", delete=False) as tmp:
-        tmp.write(file_content)
-        tmp_path = tmp.name
-    
-    try:
-        # 检查 OCR 服务是否初始化
-        if ocr_service.pipeline is None:
-            raise RuntimeError("OCR 服务未初始化，请先调用初始化接口")
-        
-        # 使用 OCR 服务的布局分析 pipeline
-        layout_results = await asyncio.wrap_future(
-            ocr_service.submit_recognize_with_layout(tmp_path)
+    upload_dir = UPLOAD_DIR / request_id
+    output_dir = OUTPUT_DIR / request_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = upload_dir / f"original{suffix}"
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("wb") as output:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            output.write(chunk)
+            digest.update(chunk)
+            size += len(chunk)
+    with (output_dir / "upload_info.json").open("w", encoding="utf-8") as output:
+        json.dump(
+            {
+                "original_filename": file.filename,
+                "stored_filename": path.name,
+                "content_type": file.content_type,
+                "file_size": size,
+                "sha256": digest.hexdigest(),
+            },
+            output,
+            ensure_ascii=False,
+            indent=2,
         )
-        
-        # 格式化结果
-        formatted_result = {
-            "filename": file.filename,
-            "file_size": file_size,
-            "method": "paddlex_ocr_with_layout",
-            "layoutParsingResults": layout_results,
-            "pages_count": len(layout_results)
-        }
-        
-        # 添加便捷访问字段
-        if layout_results and "markdown" in layout_results[0]:
-            formatted_result["markdown"] = layout_results[0]["markdown"].get("text", "")
-            formatted_result["images"] = layout_results[0]["markdown"].get("images", {})
-        
-        return ApiResponse.success(formatted_result)
-        
-    except Exception as e:
-        return ApiResponse.error(f"OCR 分析失败: {str(e)}")
-    finally:
-        # 清理临时文件
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except:
-                pass
+    return path, output_dir, size
 
 
-@router.post("/letter/parse-raw")
-async def parse_authorization_letter_raw(file: UploadFile = File(...)):
-    """
-    解析授权委托书 PDF 文件 - 返回原始信息
-    
-    接受 PDF 文件上传，返回原始内容，包括：
-    - 原始文本（每页文本）
-    - 页数
-    - 文件大小
-    - 文件名
-    
-    不进行结构化解析，直接返回 PDF 内容。
-    """
-    import os
-    from PyPDF2 import PdfReader
-    
-    # 验证文件类型
-    suffix = file.filename.split(".")[-1].lower()
-    if suffix != "pdf":
-        raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
-    
-    # 读取文件内容
-    file_content = await file.read()
-    file_size = len(file_content)
-    
-    # 保存临时文件用于读取
-    with tempfile.NamedTemporaryFile(suffix=f".{suffix}", delete=False) as tmp:
-        tmp.write(file_content)
-        tmp_path = tmp.name
-    
+async def _parse_uploaded_document(file: UploadFile):
+    request_id = get_request_id() or "-"
+    request_logger = logger.bind(request_id=request_id)
+    path, output_dir, file_size = await _persist_upload(
+        file, request_id, SUPPORTED_DOCUMENT_SUFFIXES
+    )
+    request_logger.info("Authorization source saved: {}", path)
     try:
-        # 读取 PDF 文本内容
-        reader = PdfReader(tmp_path)
-        
-        raw_data = {
+        result = await authorization_letter_service.parse_document(
+            path, output_dir, request_id
+        )
+        result["metadata"]["filename"] = file.filename
+        result["metadata"]["file_size"] = file_size
+        return ApiResponse.success(result)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        request_logger.exception("Authorization letter parsing failed")
+        return ApiResponse.error(f"授权委托书解析失败: {exc}")
+
+
+@router.post(
+    "/letter/parse",
+    summary="解析授权委托书",
+    response_description="授权书字段、附件和一致性校验结果",
+)
+async def parse_authorization_letter(
+    file: UploadFile = File(
+        ...,
+        description=(
+            "授权委托书 PDF 或扫描图片。文本型 PDF 优先读取原生字符层；扫描页、"
+            "粘贴的身份证正反面及图片型文件会调用当前 PP-OCRv6 模型识别。"
+        ),
+    ),
+):
+    """完整解析授权书；与 /letter/parse-ocr 使用同一条生产链路。"""
+    return await _parse_uploaded_document(file)
+
+
+@router.post(
+    "/letter/parse-ocr",
+    summary="解析扫描或混合型授权委托书",
+    response_description="授权书字段、身份证附件、签章证据和一致性校验结果",
+)
+async def parse_authorization_letter_ocr(
+    file: UploadFile = File(
+        ...,
+        description=(
+            "支持 PDF、JPG、JPEG、PNG、WEBP。适用于打印后手写签名、粘贴身份证"
+            "复印件、加盖实体印章，再扫描形成的最终材料。接口只检测签名和印章"
+            "是否存在，不验证真伪。"
+        ),
+    ),
+):
+    """
+    采用混合策略解析文档：
+
+    - 文本 PDF 直接读取字符层，减少整页 OCR 延迟。
+    - 扫描页使用当前 PP-OCRv6 模型。
+    - 身份证区域单独裁剪识别，并复用身份证正反面解析器。
+    - 返回正文受托人与身份证附件的姓名、号码一致性校验。
+    - 手写签名和红色印章只返回存在性证据，必须人工核验真实性。
+    """
+    return await _parse_uploaded_document(file)
+
+
+@router.post(
+    "/letter/parse-text",
+    summary="解析授权委托书文本",
+    response_description="从调用方提供的文本中提取授权书字段",
+)
+async def parse_authorization_letter_text(
+    text: str = Query(
+        ...,
+        min_length=1,
+        description=(
+            "已从授权委托书提取出的正文文本。该接口不处理身份证附件，也不检测"
+            "签名和印章；需要完整材料检查时应调用 /letter/parse-ocr。"
+        ),
+    )
+):
+    try:
+        parsed = await run_in_threadpool(text_parser.parse_text_content, text)
+        parsed.update(
+            {
+                "source": "provided_text",
+                "pages": [],
+                "delegator_signature": {
+                    "status": "not_checked",
+                    "manual_review_required": True,
+                },
+                "trustee_signature": {
+                    "status": "not_checked",
+                    "manual_review_required": True,
+                },
+                "seal": {
+                    "status": "not_checked",
+                    "manual_review_required": True,
+                },
+                "review_required": True,
+            }
+        )
+        return ApiResponse.success(text_parser.to_dict(parsed))
+    except Exception as exc:
+        logger.exception("Authorization text parsing failed")
+        return ApiResponse.error(f"授权委托书文本解析失败: {exc}")
+
+
+@router.post(
+    "/letter/parse-raw",
+    summary="读取授权书 PDF 原始文本",
+    response_description="PDF 每页原生字符层，不执行 OCR",
+)
+async def parse_authorization_letter_raw(
+    file: UploadFile = File(
+        ...,
+        description=(
+            "仅支持 PDF。返回每页原生字符层，扫描页通常为空；该接口用于排查 PDF"
+            "本身是否包含可提取文本，不执行身份证、签名或印章识别。"
+        ),
+    ),
+):
+    request_id = get_request_id() or "-"
+    path, output_dir, file_size = await _persist_upload(file, request_id, {".pdf"})
+    try:
+        document = fitz.open(str(path))
+        try:
+            pages = []
+            raw_text_parts = []
+            for index, page in enumerate(document, start=1):
+                page_text = page.get_text("text") or ""
+                pages.append(
+                    {
+                        "page_number": index,
+                        "text": page_text,
+                        "char_count": len(page_text),
+                    }
+                )
+                raw_text_parts.append(page_text)
+        finally:
+            document.close()
+        result = {
             "filename": file.filename,
             "file_size": file_size,
-            "pages_count": len(reader.pages),
-            "pages": [],
-            "raw_text": ""
+            "pages_count": len(pages),
+            "pages": pages,
+            "raw_text": "\n".join(raw_text_parts),
         }
-        
-        # 提取每页文本
-        for i, page in enumerate(reader.pages):
-            text = page.extract_text()
-            raw_data["pages"].append({
-                "page_number": i + 1,
-                "text": text if text else "",
-                "char_count": len(text) if text else 0
-            })
-            raw_data["raw_text"] += text + "\n" if text else ""
-        
-        return ApiResponse.success(raw_data)
-        
-    except Exception as e:
-        return ApiResponse.error(f"读取 PDF 失败: {str(e)}")
-    finally:
-        # 清理临时文件
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except:
-                pass
+        with (output_dir / "raw_pdf_text.json").open("w", encoding="utf-8") as output:
+            json.dump(result, output, ensure_ascii=False, indent=2)
+        return ApiResponse.success(result)
+    except Exception as exc:
+        logger.bind(request_id=request_id).exception("Raw PDF reading failed")
+        return ApiResponse.error(f"读取 PDF 失败: {exc}")
