@@ -443,6 +443,19 @@ def test_bank_card_uses_china_bank_bin():
     print("Bank Card China Bank BIN Test Passed!")
 
 
+def test_bank_card_uses_binlist_incremental_iin():
+    print("\n--- Testing Bank Card binlist Incremental IIN ---")
+    lines = [
+        OCRLine(text="370246000000006", left=50, top=100, right=400, bottom=130, score=0.99),
+    ]
+    result = OCRParser().parse(Layout(lines), document_type="bank_card")
+    assert result["bank_name"] == "中国工商银行"
+    assert result["card_type"] == "信用卡"
+    assert result["bank_name_source"] == "bin"
+    assert result["card_type_source"] == "bin"
+    print("Bank Card binlist Incremental IIN Test Passed!")
+
+
 def test_bank_card_uses_english_bank_name_alias():
     print("\n--- Testing Bank Card English Bank Name ---")
     lines = [
@@ -1542,6 +1555,7 @@ if __name__ == "__main__":
     test_bank_card_prefers_luhn_valid_candidate()
     test_bank_card_uses_bin_when_bank_text_is_missing()
     test_bank_card_uses_china_bank_bin()
+    test_bank_card_uses_binlist_incremental_iin()
     test_bank_card_uses_english_bank_name_alias()
     test_bank_card_uses_communications_bank_bin()
     test_bank_card_type_uses_product_name_enum()

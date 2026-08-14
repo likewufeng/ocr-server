@@ -1,9 +1,19 @@
 {
-  "schema_version": "1",
-  "source": "card-bin-db/bincheck.csv",
-  "source_version": "card-bin-db@1.0.2",
-  "source_license": "MIT package; verify upstream data terms before commercial redistribution",
-  "source_url": "https://github.com/checkv4/card-bin-db",
+  "schema_version": "2",
+  "sources": [
+    {
+      "name": "card-bin-db/bincheck.csv",
+      "version": "card-bin-db@1.0.2",
+      "license": "MIT package; verify upstream data terms before commercial redistribution",
+      "url": "https://github.com/checkv4/card-bin-db"
+    },
+    {
+      "name": "iannuttall/binlist-data",
+      "version": "local snapshot",
+      "license": "CC BY 4.0",
+      "url": "https://github.com/iannuttall/binlist-data"
+    }
+  ],
   "country_code": "CN",
   "records": [
     {
@@ -1352,9 +1362,33 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "370246",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "370247",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "370284",
       "bank_name": "CHINA MERCHANT BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "370285",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "370286",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "375142",
@@ -1362,9 +1396,27 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "376966",
+      "bank_name": "CHINA CITIC BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "376968",
+      "bank_name": "CHINA CITIC BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "376969",
       "bank_name": "CHINA CITIC BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "377677",
+      "bank_name": "BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "379917",
@@ -1482,6 +1534,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "402336",
+      "bank_name": "SHANGHAI PUDONG DEVELOPMENT BANK",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "402658",
       "bank_name": "CHINA MERCHANTS BANK",
       "card_type": "DEBIT"
@@ -1502,6 +1560,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "402696",
+      "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "402791",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "DEBIT"
@@ -1510,6 +1574,12 @@
       "prefix": "402792",
       "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "402866",
+      "bank_name": "SHANGHAI CREDIT CARD NETWORK CO., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "402905",
@@ -1682,9 +1752,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "405254",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "405512",
       "bank_name": "BANK OF COMMUNICATIONS",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "405540",
+      "bank_name": "SHANGHAI PUDONG DEVELOPMENT BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "405546",
@@ -1822,9 +1904,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "408575",
+      "bank_name": "CITICORP",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "409176",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "409218",
+      "bank_name": "CITIBANK INTERNATIONAL",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "409257",
@@ -1882,6 +1976,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "410045",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "410062",
       "bank_name": "CHINA MERCHANTS BANK",
       "card_type": "DEBIT"
@@ -1917,6 +2017,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "412964",
+      "bank_name": "SHENZHEN DEVELOPMENT BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "412965",
       "bank_name": "PING AN BANK CO., LTD.",
       "card_type": "CREDIT"
@@ -1940,6 +2046,24 @@
       "prefix": "413521",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "414138",
+      "bank_name": "BANCO COMERCIAL DE MACAU, S.A.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "414142",
+      "bank_name": "STANDARD CHARTERED BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "414158",
+      "bank_name": "BANK OF COMMUNICATIONS HONG KONG,",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "415026",
@@ -2027,6 +2151,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "418269",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "419018",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
@@ -2092,9 +2222,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "421311",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "421312",
       "bank_name": "STANDARD CHARTERED BANK",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "421313",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "421317",
@@ -2102,9 +2244,27 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "421330",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421336",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "421349",
       "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "421360",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "421361",
@@ -2117,9 +2277,21 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "421366",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "421382",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "421389",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "421393",
@@ -2132,6 +2304,24 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "421841",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421849",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421850",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "421856",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "CREDIT"
@@ -2142,9 +2332,33 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "421859",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421863",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421864",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "421865",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "421866",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "421867",
@@ -2170,6 +2384,12 @@
       "prefix": "421871",
       "bank_name": "CHINA MINSHENG BANKING CORP.,LTD",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "421872",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "421873",
@@ -2200,6 +2420,24 @@
       "prefix": "421881",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "421893",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421894",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "421899",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "422160",
@@ -2317,6 +2555,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "427085",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "427570",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "DEBIT"
@@ -2417,6 +2661,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "432704",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "432710",
       "bank_name": "HONG KONG AND SHANGHAI BANKING CORP., LTD.",
       "card_type": "CREDIT"
@@ -2425,6 +2675,24 @@
       "prefix": "432925",
       "bank_name": "CHINA MERCHANTS BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "433281",
+      "bank_name": "BANCO COMERCIAL DE MACAU (ASIA) S.A.R.L.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "433282",
+      "bank_name": "BANCO COMERCIAL DE MACAU (ASIA) S.A.R.L.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "433619",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "433645",
@@ -2532,6 +2800,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "436724",
+      "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "436728",
       "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
       "card_type": "CREDIT"
@@ -2547,9 +2821,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "436737",
+      "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "436738",
       "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "436739",
+      "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "436742",
@@ -2617,6 +2903,48 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "436776",
+      "bank_name": "CHINA CONSTRUCTION BANK CORPORATION",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436780",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436781",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436782",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436783",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436784",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "436785",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "436786",
       "bank_name": "AGRICULTURAL BANK OF CHINA",
       "card_type": "DEBIT"
@@ -2667,9 +2995,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "436797",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "437790",
       "bank_name": "CHINA EVERBRIGHT BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "438052",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "438058",
@@ -2677,9 +3017,63 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "438059",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438060",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438061",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438062",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438063",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "438064",
       "bank_name": "BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "438065",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438066",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438067",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438068",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "438069",
@@ -2702,6 +3096,24 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "438073",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438074",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "438075",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "438079",
       "bank_name": "BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
@@ -2710,6 +3122,12 @@
       "prefix": "438082",
       "bank_name": "BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "438083",
+      "bank_name": "BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "438088",
@@ -2777,6 +3195,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "438591",
+      "bank_name": "GUANGDONG BANK CARD NETWORK SERVICE CENTRE",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "438593",
       "bank_name": "CHINA CITIC BANK",
       "card_type": "DEBIT"
@@ -2785,6 +3209,12 @@
       "prefix": "438600",
       "bank_name": "BANK OF SHANGHAI",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "438614",
+      "bank_name": "BANK OF SHANGHAI",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "438619",
@@ -2862,9 +3292,21 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "442307",
+      "bank_name": "UNITED CHINESE BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "442342",
       "bank_name": "HONG KONG AND SHANGHAI BANKING CORP., LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "442365",
+      "bank_name": "BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "442729",
@@ -2877,6 +3319,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "443269",
+      "bank_name": "ABN AMRO BANK, N.V.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "443322",
       "bank_name": "BANK OF DALIAN CO., LTD.",
       "card_type": "CREDIT"
@@ -2887,6 +3335,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "445055",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "445074",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "DEBIT"
@@ -2895,6 +3349,12 @@
       "prefix": "447699",
       "bank_name": "STANDARD CHARTERED BANK (HONG KONG), LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "448395",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "450546",
@@ -2915,6 +3375,12 @@
       "prefix": "450694",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "450769",
+      "bank_name": "STANDARD CHARTERED BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "450818",
@@ -2957,6 +3423,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "451484",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "451804",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
@@ -2987,6 +3459,42 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "452371",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "452372",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "452373",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "452374",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "452375",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "452376",
+      "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "452377",
       "bank_name": "SHANGHAI COMMERCIAL BANK, LTD.",
       "card_type": "CREDIT"
@@ -3002,6 +3510,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "454620",
+      "bank_name": "HONG KONG TELECOM",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "454693",
       "bank_name": "BANK OF GUIYANG CO., LTD.",
       "card_type": "CREDIT"
@@ -3015,6 +3529,24 @@
       "prefix": "454936",
       "bank_name": "STANDARD CHARTERED BANK(CHINA), LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "455235",
+      "bank_name": "BOC CREDIT CARD (INTERNATIONAL), LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "455377",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "455378",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "455428",
@@ -3127,6 +3659,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "458070",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "458071",
       "bank_name": "INDUSTRIAL & COMMERCIAL BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
@@ -3170,6 +3708,30 @@
       "prefix": "459890",
       "bank_name": "BANK OF JILIN CO., LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "460192",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "460193",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "460194",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "460195",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "461212",
@@ -3252,6 +3814,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "465281",
+      "bank_name": "CITIBANK INTERNATIONAL",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "466140",
       "bank_name": "BANK OF HANGZHOU CO., LTD.",
       "card_type": "CREDIT"
@@ -3310,6 +3878,12 @@
       "prefix": "468203",
       "bank_name": "CHINA MERCHANTS BANK",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "468224",
+      "bank_name": "CHINA CONSTRUCTION BANK",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "468800",
@@ -3377,6 +3951,18 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "469556",
+      "bank_name": "STANDARD CHARTERED BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "469557",
+      "bank_name": "STANDARD CHARTERED BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "470579",
       "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
       "card_type": "CREDIT"
@@ -3437,6 +4023,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "472141",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "472485",
       "bank_name": "FUBON BANK (CHINA) CO., LTD.",
       "card_type": "CREDIT"
@@ -3450,6 +4042,24 @@
       "prefix": "473241",
       "bank_name": "GUILIN BANK CO., LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "473252",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "473334",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "474120",
+      "bank_name": "INTERPAYMENT SERVICES, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "474287",
@@ -3617,6 +4227,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "486402",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "486466",
       "bank_name": "BANK OF SHANGHAI",
       "card_type": "CREDIT"
@@ -3687,9 +4303,33 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "490902",
+      "bank_name": "CITIBANK INTERNATIONAL",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491020",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491021",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "491022",
       "bank_name": "AGRICULTURAL BANK OF CHINA",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "491023",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "491024",
@@ -3700,6 +4340,12 @@
       "prefix": "491025",
       "bank_name": "AGRICULTURAL BANK OF CHINA",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "491026",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "491027",
@@ -3757,9 +4403,57 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "491041",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491042",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491043",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491044",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491045",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491046",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491047",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "491048",
       "bank_name": "BANK OF COMMUNICATIONS",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "491049",
+      "bank_name": "BANK OF COMMUNICATIONS",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "491667",
@@ -3770,6 +4464,18 @@
       "prefix": "491680",
       "bank_name": "BANK OF COMMUNICATIONS",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "491686",
+      "bank_name": "INTERNATIONAL BANK OF ASIA, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "491724",
+      "bank_name": "BANK OF AMERICA (ASIA), LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "491881",
@@ -3807,9 +4513,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "493728",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "493776",
       "bank_name": "BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "493777",
+      "bank_name": "BOC CREDIT CARD (INTERNATIONAL), LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "493780",
@@ -3837,6 +4555,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "494031",
+      "bank_name": "HONGKONG AND SHANGHAI BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "496648",
       "bank_name": "CITIBANK INTERNATIONAL",
       "card_type": "CREDIT"
@@ -3845,6 +4569,24 @@
       "prefix": "498451",
       "bank_name": "SHANGHAI PUDONG DEVELOPMENT BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "498482",
+      "bank_name": "STANDARD CHARTERED BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498500",
+      "bank_name": "CITIBANK INTERNATIONAL",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498508",
+      "bank_name": "CITIBANK INTERNATIONAL",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "498509",
@@ -3860,6 +4602,12 @@
       "prefix": "498526",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "498531",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "498532",
@@ -3887,6 +4635,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "498546",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "498547",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
@@ -3907,6 +4661,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "498563",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "498564",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
@@ -3915,6 +4675,12 @@
       "prefix": "498566",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "498567",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "498569",
@@ -3935,6 +4701,12 @@
       "prefix": "498572",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "498573",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "498574",
@@ -3972,6 +4744,36 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "498585",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498586",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498587",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498597",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "498598",
+      "bank_name": "CITIBANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "498599",
       "bank_name": "CITIBANK",
       "card_type": "CREDIT"
@@ -3980,6 +4782,12 @@
       "prefix": "498898",
       "bank_name": "BANK OF EAST ASIA, LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "499973",
+      "bank_name": "CHINA CONSTRUCTION BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "504923",
@@ -4242,9 +5050,171 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "517601",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517602",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517603",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517604",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517606",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517607",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517608",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517610",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517611",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517612",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517613",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517614",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517615",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517616",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517617",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517619",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517620",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517621",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517622",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517623",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517624",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517625",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517626",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517629",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517630",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517631",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "517636",
       "bank_name": "CHINA MINSHENG BANKING CORPORATION LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "517649",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "517650",
@@ -4252,9 +5222,141 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "517659",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517664",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517670",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517672",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517673",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517674",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517675",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517676",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517677",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517678",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517679",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517680",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517681",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517682",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517683",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517685",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517687",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517688",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "517691",
       "bank_name": "INDUSTRIAL BANK CO., LTD",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "517693",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517696",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517697",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "517698",
+      "bank_name": "CHINA MINSHENG BANKING CORP., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "517812",
@@ -4362,6 +5464,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "518708",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "518710",
       "bank_name": "CHINA MERCHANTS BANK CO., LTD.",
       "card_type": "CREDIT"
@@ -4377,6 +5485,18 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "518713",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518717",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "518718",
       "bank_name": "CHINA MERCHANTS BANK CO., LTD.",
       "card_type": "CREDIT"
@@ -4390,6 +5510,60 @@
       "prefix": "518724",
       "bank_name": "CHINA MERCHANTS BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "518731",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518733",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518734",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518735",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518736",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518741",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518742",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518743",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "518744",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "518746",
@@ -5102,6 +6276,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "528609",
+      "bank_name": "LIU CHONG HING BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "528708",
       "bank_name": "HUA XIA BANK CO., LTD.",
       "card_type": "CREDIT"
@@ -5300,6 +6480,12 @@
       "prefix": "531851",
       "bank_name": "BANK OF BEIJING CO., LTD.",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "531948",
+      "bank_name": "WING HANG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "532002",
@@ -5727,6 +6913,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "541717",
+      "bank_name": "GUANGDONG DEVELOPMENT BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "541867",
       "bank_name": "BANK OF CHINA",
       "card_type": "CREDIT"
@@ -5862,9 +7054,21 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "545621",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "545782",
       "bank_name": "AGRICULTURAL BANK OF CHINA",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "545948",
+      "bank_name": "CHINA MERCHANTS BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "545950",
@@ -6157,6 +7361,12 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "554515",
+      "bank_name": "BANK OF BEIJING CO., LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "554652",
       "bank_name": "CHINA CONSTRUCTION BANK",
       "card_type": "CREDIT"
@@ -6165,6 +7375,18 @@
       "prefix": "554663",
       "bank_name": "BANK OF COMMUNICATIONS",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "554684",
+      "bank_name": "AGRICULTURAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "554749",
+      "bank_name": "BOC CREDIT CARD (INTERNATIONAL), LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "555573",
@@ -6292,6 +7514,18 @@
       "card_type": "CREDIT"
     },
     {
+      "prefix": "558363",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "558368",
+      "bank_name": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "558730",
       "bank_name": "AGRICULTURAL BANK OF CHINA, LTD.",
       "card_type": "CREDIT"
@@ -6370,6 +7604,12 @@
       "prefix": "559051",
       "bank_name": "CHINA CONSTRUCTION BANK",
       "card_type": "CREDIT"
+    },
+    {
+      "prefix": "559121",
+      "bank_name": "CHINA CONSTRUCTION BANK",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "559133",
@@ -10652,6 +11892,30 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "622406",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "622407",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "622409",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "622410",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "622411",
       "bank_name": "WEIHAI COMMERCIAL BANK",
       "card_type": "DEBIT"
@@ -10882,9 +12146,33 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "622487",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "622488",
       "bank_name": "WUJIANG RURAL COMMERCIAL BANK CO., LTD.",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "622490",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "622491",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
+      "prefix": "622492",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "DEBIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "622495",
@@ -12167,6 +13455,12 @@
       "card_type": "DEBIT"
     },
     {
+      "prefix": "622861",
+      "bank_name": "TAI FUNG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
+    },
+    {
       "prefix": "622864",
       "bank_name": "LAISHANG BANK",
       "card_type": "DEBIT"
@@ -12200,6 +13494,12 @@
       "prefix": "622870",
       "bank_name": "JINGJIANG CHANGJIANG URBAN CREDIT UNION",
       "card_type": "DEBIT"
+    },
+    {
+      "prefix": "622871",
+      "bank_name": "WING lanG BANK, LTD.",
+      "card_type": "CREDIT",
+      "source": "iannuttall/binlist-data"
     },
     {
       "prefix": "622873",
