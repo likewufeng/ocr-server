@@ -456,6 +456,16 @@ def test_bank_card_uses_binlist_incremental_iin():
     print("Bank Card binlist Incremental IIN Test Passed!")
 
 
+def test_bank_card_catalog_expanded_aliases():
+    print("\n--- Testing Expanded Bank Card Catalog Aliases ---")
+    catalog = OCRParser().parsers["bank_card"].catalog
+    assert catalog.find_bank_name("SHANGHAI PUDONG DEVELOPMENT BANK") == "上海浦东发展银行"
+    assert catalog.find_bank_name("BANK OF EAST ASIA (CHINA), LTD.") == "东亚银行"
+    assert catalog.find_bank_name("GUILIN BANK") == "桂林银行"
+    assert catalog.find_bank_name("HONG KONG AND SHANGHAI BANKING CORP., LTD.") == "汇丰银行"
+    print("Expanded Bank Card Catalog Aliases Test Passed!")
+
+
 def test_bank_card_uses_english_bank_name_alias():
     print("\n--- Testing Bank Card English Bank Name ---")
     lines = [
@@ -1556,6 +1566,7 @@ if __name__ == "__main__":
     test_bank_card_uses_bin_when_bank_text_is_missing()
     test_bank_card_uses_china_bank_bin()
     test_bank_card_uses_binlist_incremental_iin()
+    test_bank_card_catalog_expanded_aliases()
     test_bank_card_uses_english_bank_name_alias()
     test_bank_card_uses_communications_bank_bin()
     test_bank_card_type_uses_product_name_enum()
