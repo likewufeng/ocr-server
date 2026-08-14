@@ -34,3 +34,9 @@ data/openvino-experiment/
 
 # 打包后的文件
 release/
+
+# 银行卡 ROI 本机构建环境、下载缓存与导出日志
+.tools/
+
+# 含真实接口响应、卡号和 request_id 的本地 A/B 对照记录
+reports/bank_card_roi_ab_*.txt

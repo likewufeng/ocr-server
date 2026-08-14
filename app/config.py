@@ -203,6 +203,29 @@ OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT = max(
     640, int(os.getenv("OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT", "960"))
 )
 
+# ---------- 银行卡专用区域定位 ----------
+# 可选 ONNX 模型先定位卡号和有效期区域，再对小区域补做 OCR。默认关闭，避免
+# 未部署模型时影响现有银行卡接口，也避免给所有证件增加一次检测推理。
+OCR_BANK_CARD_ROI_ENABLED = _env_bool("OCR_BANK_CARD_ROI_ENABLED", False)
+OCR_BANK_CARD_ROI_MODEL_FILE = BASE_DIR / os.getenv(
+    "OCR_BANK_CARD_ROI_MODEL_FILE", "models/bank_card_roi/yolo_best.onnx"
+)
+OCR_BANK_CARD_ROI_INPUT_SIZE = max(
+    320, int(os.getenv("OCR_BANK_CARD_ROI_INPUT_SIZE", "640"))
+)
+OCR_BANK_CARD_ROI_CONFIDENCE = min(
+    0.95, max(0.05, float(os.getenv("OCR_BANK_CARD_ROI_CONFIDENCE", "0.45")))
+)
+OCR_BANK_CARD_ROI_NMS = min(
+    0.95, max(0.05, float(os.getenv("OCR_BANK_CARD_ROI_NMS", "0.45")))
+)
+OCR_BANK_CARD_ROI_PADDING_RATIO = min(
+    0.5, max(0.0, float(os.getenv("OCR_BANK_CARD_ROI_PADDING_RATIO", "0.08")))
+)
+OCR_BANK_CARD_ROI_MIN_SCORE = min(
+    1.0, max(0.0, float(os.getenv("OCR_BANK_CARD_ROI_MIN_SCORE", "0.35")))
+)
+
 # 身份证正面低质量图片的条件重试。首轮结果完整时不会触发第二次推理；
 # 重试只使用温和的放大、CLAHE 和锐化，不改变生产默认的 UVDoc 行为。
 OCR_ID_FRONT_QUALITY_RETRY_ENABLED = _env_bool(

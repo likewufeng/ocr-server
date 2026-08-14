@@ -30,6 +30,13 @@ from app.config import OCR_BUSINESS_SCOPE_ROI_MIN_SCORE
 from app.config import OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED
 from app.config import OCR_BUSINESS_SCOPE_ROI_SCALE
 from app.config import OCR_BUSINESS_LICENSE_DETECTION_SIDE_LIMIT
+from app.config import OCR_BANK_CARD_ROI_CONFIDENCE
+from app.config import OCR_BANK_CARD_ROI_ENABLED
+from app.config import OCR_BANK_CARD_ROI_INPUT_SIZE
+from app.config import OCR_BANK_CARD_ROI_MIN_SCORE
+from app.config import OCR_BANK_CARD_ROI_MODEL_FILE
+from app.config import OCR_BANK_CARD_ROI_NMS
+from app.config import OCR_BANK_CARD_ROI_PADDING_RATIO
 from app.config import OCR_BUSINESS_FIELD_ROI_MIN_SCORE
 from app.config import OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED
 from app.config import OCR_BUSINESS_FIELD_ROI_SCALE
@@ -57,6 +64,7 @@ from app.config import OCR_USE_DOC_ORIENTATION
 from app.config import OCR_USE_DOC_UNWARPING
 from app.config import OCR_USE_FINE_TUNED_MODEL
 from app.parsers.id_front import IDFrontParser
+from app.services.bank_card_roi import BankCardROILocalizer, select_field_detections
 
 # 2. 拼接出精准的本地模型绝对路径（跨平台，防写死路径报错）
 fine_tuned_model_path = str(MODEL_DIR / "my_bank_card_det")
@@ -199,6 +207,8 @@ class OCRService:
     def __init__(self):
         self.pipeline = None
         self.layout_pipeline = None
+        self.bank_card_roi_localizer = None
+        self.bank_card_roi_error = None
         self.pipeline_uses_fine_tuned_detector = False
         self._inference_executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="ocr-inference"
@@ -249,6 +259,10 @@ class OCRService:
             "business_scope_roi_scale": OCR_BUSINESS_SCOPE_ROI_SCALE,
             "business_field_roi_retry": OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED,
             "business_field_roi_scale": OCR_BUSINESS_FIELD_ROI_SCALE,
+            "bank_card_roi_enabled": OCR_BANK_CARD_ROI_ENABLED,
+            "bank_card_roi_model": str(OCR_BANK_CARD_ROI_MODEL_FILE),
+            "bank_card_roi_confidence": OCR_BANK_CARD_ROI_CONFIDENCE,
+            "bank_card_roi_padding": OCR_BANK_CARD_ROI_PADDING_RATIO,
             "document_type": document_type,
             "detection_side_limit": self._detection_side_limit(document_type),
             "min_score": effective_min_score,
@@ -261,6 +275,184 @@ class OCRService:
         return OCR_USE_DOC_UNWARPING or (
             document_type == "id_front" and OCR_ID_FRONT_USE_DOC_UNWARPING
         )
+
+    def _initialize_bank_card_roi_localizer(self) -> None:
+        """Load the optional ONNX localizer without risking the OCR pipeline."""
+        if not OCR_BANK_CARD_ROI_ENABLED or self.bank_card_roi_localizer is not None:
+            return
+        if self.bank_card_roi_error is not None:
+            return
+        try:
+            localizer = BankCardROILocalizer(
+                OCR_BANK_CARD_ROI_MODEL_FILE,
+                input_size=OCR_BANK_CARD_ROI_INPUT_SIZE,
+                confidence_threshold=OCR_BANK_CARD_ROI_CONFIDENCE,
+                nms_threshold=OCR_BANK_CARD_ROI_NMS,
+            )
+            localizer.load()
+            self.bank_card_roi_localizer = localizer
+            logger.info(
+                "Bank-card ROI localizer ready: model={}, input_size={}",
+                OCR_BANK_CARD_ROI_MODEL_FILE,
+                OCR_BANK_CARD_ROI_INPUT_SIZE,
+            )
+        except Exception as exc:
+            self.bank_card_roi_error = str(exc)
+            logger.warning(
+                "Bank-card ROI localizer unavailable; falling back to full-image OCR: {}",
+                exc,
+            )
+
+    @staticmethod
+    def _bank_card_field_gaps(texts: list[str]) -> set[str]:
+        """Find card fields that are absent from the first OCR pass."""
+        replacements = str.maketrans({
+            "O": "0", "I": "1", "L": "1", "S": "5", "Z": "2",
+            "B": "8", "G": "6", "T": "7", "Q": "9",
+        })
+        has_card_number = False
+        has_valid_date = False
+        for text in texts:
+            normalized = (text or "").upper().translate(replacements)
+            # The parser accepts carefully constrained non-Luhn values for
+            # masked/demo cards too, so this only detects visual evidence,
+            # not card validity. Require 15-19 digits after clean-up so a
+            # long English bank name cannot suppress the ROI retry.
+            for candidate in re.findall(r"[0-9A-Z\s~*·•_-]{15,25}", normalized):
+                if 15 <= len(re.sub(r"\D", "", candidate)) <= 19:
+                    has_card_number = True
+                    break
+            # Preserve visible placeholders such as 88/88. The parser returns
+            # them by design, so they should not trigger a needless ROI pass.
+            if re.search(r"(?<!\d)\d{2}\s*[/.-]\s*\d{2,4}(?!\d)", normalized):
+                has_valid_date = True
+        gaps = set()
+        if not has_card_number:
+            gaps.add("card_number")
+        if not has_valid_date:
+            gaps.add("date")
+        return gaps
+
+    def recover_bank_card_fields(
+        self,
+        image_path: str,
+        ocr_result: dict[str, Any],
+        fields: set[str],
+        output_dir: Optional[Union[str, Path]],
+        request_logger,
+    ) -> dict[str, Any]:
+        """Append OCR lines from detector-localized card fields when needed."""
+        metadata = {
+            "enabled": OCR_BANK_CARD_ROI_ENABLED,
+            "attempted": False,
+            "reason": "",
+            "field_gaps": [],
+            "detections": [],
+            "artifacts": [],
+            "recognized_line_count": 0,
+        }
+        self._initialize_bank_card_roi_localizer()
+        if self.bank_card_roi_localizer is None:
+            metadata["reason"] = "localizer_unavailable"
+            if self.bank_card_roi_error:
+                metadata["error"] = self.bank_card_roi_error
+            return metadata
+
+        fields = {"date" if field == "valid_date" else field for field in fields}
+        metadata["field_gaps"] = sorted(fields)
+        if not fields:
+            metadata["reason"] = "first_pass_complete"
+            return metadata
+
+        image = cv2.imread(image_path)
+        if image is None:
+            metadata["reason"] = "image_read_failed"
+            return metadata
+        try:
+            detections = select_field_detections(self.bank_card_roi_localizer.detect(image))
+            detections = [item for item in detections if item.label in fields]
+            metadata["detections"] = [
+                {
+                    "label": item.label,
+                    "confidence": item.confidence,
+                    "box": [item.left, item.top, item.right, item.bottom],
+                }
+                for item in detections
+            ]
+            if not detections:
+                metadata["reason"] = "field_not_detected"
+                return metadata
+
+            metadata["attempted"] = True
+            for order, detection in enumerate(detections, start=1):
+                crop, (left, top, right, bottom) = self.bank_card_roi_localizer.crop(
+                    image, detection, OCR_BANK_CARD_ROI_PADDING_RATIO
+                )
+                if crop.size == 0:
+                    continue
+                temporary_crop = None
+                artifact_name = "bank_card_{}_roi_{}.jpg".format(detection.label, order)
+                if output_dir is not None:
+                    crop_path = Path(output_dir) / artifact_name
+                    metadata["artifacts"].append(artifact_name)
+                else:
+                    descriptor, temporary_crop = tempfile.mkstemp(suffix=".jpg")
+                    os.close(descriptor)
+                    crop_path = Path(temporary_crop)
+                try:
+                    if not cv2.imwrite(str(crop_path), crop):
+                        continue
+                    options = {"text_det_limit_side_len": 960, "text_det_limit_type": "max"}
+                    if not self.pipeline_uses_fine_tuned_detector:
+                        options.update(
+                            {"use_doc_orientation_classify": False, "use_doc_unwarping": False}
+                        )
+                    for prediction in self.pipeline.predict(str(crop_path), **options):
+                        for index, score in enumerate(prediction["rec_scores"]):
+                            if float(score) < OCR_BANK_CARD_ROI_MIN_SCORE:
+                                continue
+                            text = self.postprocess_texts([prediction["rec_texts"][index]])[0]
+                            if not text:
+                                continue
+                            box = prediction["rec_boxes"][index].tolist()
+                            mapped_box = [
+                                int(box[0]) + left,
+                                int(box[1]) + top,
+                                int(box[2]) + left,
+                                int(box[3]) + top,
+                            ]
+                            ocr_result["texts"].append(text)
+                            ocr_result["scores"].append(float(score))
+                            ocr_result["boxes"].append(mapped_box)
+                            ocr_result["polys"].append(
+                                [
+                                    [mapped_box[0], mapped_box[1]],
+                                    [mapped_box[2], mapped_box[1]],
+                                    [mapped_box[2], mapped_box[3]],
+                                    [mapped_box[0], mapped_box[3]],
+                                ]
+                            )
+                            metadata["recognized_line_count"] += 1
+                        break
+                finally:
+                    if temporary_crop:
+                        try:
+                            os.remove(temporary_crop)
+                        except OSError:
+                            pass
+            metadata["reason"] = "ok" if metadata["recognized_line_count"] else "roi_ocr_empty"
+            request_logger.info(
+                "Bank-card ROI recovery completed: gaps={}, detections={}, lines={}",
+                metadata["field_gaps"],
+                len(detections),
+                metadata["recognized_line_count"],
+            )
+            return metadata
+        except Exception as exc:
+            metadata["reason"] = "roi_recovery_failed"
+            metadata["error"] = str(exc)
+            request_logger.warning("Bank-card ROI recovery failed; keeping first pass: {}", exc)
+            return metadata
 
     @staticmethod
     def _analyze_image_quality(image_path: str) -> dict[str, Any]:
@@ -538,6 +730,12 @@ class OCRService:
         """Run missing business-field ROI recovery on the predictor-owning thread."""
         return self._inference_executor.submit(
             self.recover_business_license_fields, image_path, **kwargs
+        )
+
+    def submit_recover_bank_card_fields(self, image_path: str, **kwargs):
+        """Run optional card ROI recovery on the predictor-owning thread."""
+        return self._inference_executor.submit(
+            self.recover_bank_card_fields, image_path, **kwargs
         )
 
     def submit_recognize_with_layout(self, image_path: str):
@@ -1881,6 +2079,14 @@ class OCRService:
                     os.remove(retry_temp_path)
                 except OSError as exc:
                     logger.warning("Failed to clean retry image: {}", exc)
+
+    @staticmethod
+    def _write_json_artifact(path: Path, data: dict[str, Any]) -> None:
+        try:
+            with path.open("w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=2)
+        except OSError as exc:
+            logger.warning("Failed to save OCR artifact {}: {}", path, exc)
 
 
     def recognize_with_layout(self, image_path: str) -> list[dict[str, Any]]:

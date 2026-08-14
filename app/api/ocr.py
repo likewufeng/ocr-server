@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from app.config import (
     OCR_BUSINESS_FIELD_ROI_RETRY_ENABLED,
     OCR_BUSINESS_SCOPE_ROI_RETRY_ENABLED,
+    OCR_BANK_CARD_ROI_ENABLED,
     OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED,
     OCR_MAX_CONCURRENT_REQUESTS,
     OUTPUT_DIR,
@@ -312,6 +313,33 @@ async def ocr(
         cache_status = "hit" if cache_hit else "miss"
         layout = build_layout(ocr_result)
         document = parser.parse(layout, document_type=document_type)
+        if OCR_BANK_CARD_ROI_ENABLED and document.get("type") == "bank_card":
+            missing_card_fields = {
+                field for field in ("card_number", "valid_date") if not document.get(field)
+            }
+            if missing_card_fields:
+                bank_card_roi_recovery = await asyncio.wrap_future(
+                    ocr_service.submit_recover_bank_card_fields(
+                        str(path),
+                        ocr_result=ocr_result,
+                        fields=missing_card_fields,
+                        output_dir=output_dir,
+                        request_logger=request_logger,
+                    )
+                )
+                await run_in_threadpool(
+                    _save_json,
+                    output_dir / "bank_card_roi_recovery.json",
+                    bank_card_roi_recovery,
+                )
+                if bank_card_roi_recovery.get("recognized_line_count", 0):
+                    layout = build_layout(ocr_result)
+                    document = parser.parse(layout, document_type=document_type)
+                    await run_in_threadpool(ocr_cache.set, cache_key, ocr_result)
+                    request_logger.info(
+                        "Bank-card ROI OCR appended {} lines and refreshed cache",
+                        bank_card_roi_recovery["recognized_line_count"],
+                    )
         field_roi_recovery = None
         if (
             OCR_ID_FRONT_FIELD_ROI_RETRY_ENABLED

@@ -1468,6 +1468,29 @@ def test_id_back_with_truncated_balinyouqi_authority():
     assert result["expiry_date"] == "2024.10.26"
     print("ID Back Truncated Balinyouqi Authority Test Passed!")
 
+
+def test_bank_card_roi_detector_helpers():
+    from app.services.bank_card_roi import ROIDetection, select_field_detections
+    from app.services.ocr_service import OCRService
+
+    detections = [
+        ROIDetection("card_number", 0.72, 10, 20, 220, 50),
+        ROIDetection("card_number", 0.91, 15, 25, 205, 55),
+        ROIDetection("date", 0.88, 240, 70, 320, 100),
+        ROIDetection("date", 0.61, 330, 70, 410, 100),
+        ROIDetection("union_pay", 0.99, 430, 20, 470, 60),
+    ]
+    selected = select_field_detections(detections)
+    assert [item.label for item in selected] == ["card_number", "date", "date"]
+    assert selected[0].confidence == 0.91
+
+    service = OCRService()
+    assert service._bank_card_field_gaps(["6222 0210 0112 3455 781", "12/29"]) == set()
+    assert service._bank_card_field_gaps(["中国建设银行"] ) == {"card_number", "date"}
+    assert service._bank_card_field_gaps(["CHINA CONSTRUCTION BANK", "12/29"]) == {"card_number"}
+    assert service._bank_card_field_gaps(["6222 0210 0112 3455 781", "88/88"]) == set()
+    print("Bank Card ROI Helper Test Passed!")
+
 if __name__ == "__main__":
     test_document_type_hint()
     test_id_front_unwarping_is_document_specific()
@@ -1511,6 +1534,7 @@ if __name__ == "__main__":
     test_id_back_with_comma_date_separator()
     test_id_back_with_overlapping_authority_box()
     test_id_back_with_truncated_balinyouqi_authority()
+    test_bank_card_roi_detector_helpers()
     test_bank_card_with_typos()
     test_bank_card_with_split_bank_name()
     test_bank_card_extracts_holder_name()
