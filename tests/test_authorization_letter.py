@@ -154,6 +154,13 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             "郑州市某区某路",
         )
 
+    def test_low_confidence_name_requests_clean_variant(self):
+        self.assertTrue(
+            self.service._field_needs_variant(
+                "delegator", "吴锋张", {"scores": [0.7586]}
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

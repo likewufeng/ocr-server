@@ -691,6 +691,46 @@ class AuthorizationLetterService:
             return ""
         return ""
 
+    @staticmethod
+    def _remove_form_lines(image: np.ndarray) -> np.ndarray:
+        """Remove long template rules while retaining handwriting strokes."""
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        inverted = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )[1]
+        kernel_width = max(24, image.shape[1] // 7)
+        horizontal = cv2.morphologyEx(
+            inverted,
+            cv2.MORPH_OPEN,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_width, 1)),
+        )
+        cleaned = gray.copy()
+        cleaned[horizontal > 0] = 255
+        return cv2.cvtColor(cleaned, cv2.COLOR_GRAY2BGR)
+
+    @staticmethod
+    def _field_needs_variant(field: str, value: Any, ocr_result: Dict[str, Any]) -> bool:
+        scores = ocr_result.get("scores") or []
+        average_score = float(sum(scores) / len(scores)) if scores else 0.0
+        if field in {"delegator", "trustee"}:
+            return (
+                not AuthorizationLetterService._is_plausible_person_name(value)
+                or average_score < 0.95
+            )
+        if field in {"delegator_id", "trustee_id"}:
+            compact = re.sub(r"\s+", "", "".join(ocr_result.get("texts") or []))
+            return not any(
+                AuthorizationLetterService._is_valid_id_number(match)
+                for match in re.findall(r"\d{17}[0-9Xx]", compact)
+            )
+        if field == "delegator_address":
+            return not bool(value) or average_score < 0.95
+        if field == "validity_period":
+            return not bool(value) or average_score < 0.95
+        if field == "signing_date":
+            return not bool(value) or average_score < 0.95
+        return False
+
     async def _recover_form_fields(
         self,
         image: np.ndarray,
@@ -721,24 +761,86 @@ class AuthorizationLetterService:
                 output_dir / f"page_{page_number:03d}_{field}_roi_ocr.json",
                 ocr_result,
             )
+            candidates = [("original", crop_path.name, ocr_result)]
             value = self._field_value_from_ocr(field, ocr_result.get("texts") or [])
-            raw_value = value
-            if field in {"delegator_id", "trustee_id"}:
-                raw_matches = re.findall(
-                    r"\d{17}[0-9Xx]",
-                    re.sub(r"\s+", "", "".join(ocr_result.get("texts") or [])),
+            if self._field_needs_variant(field, value, ocr_result):
+                variant = self._remove_form_lines(crop)
+                variant = cv2.resize(
+                    variant, None, fx=1.75, fy=1.75, interpolation=cv2.INTER_CUBIC
                 )
-                raw_value = raw_matches[0].upper() if raw_matches else ""
+                variant_path = output_dir / f"page_{page_number:03d}_{field}_roi_clean.jpg"
+                self._write_image(variant_path, variant)
+                variant_ocr = await self._recognize(
+                    variant_path,
+                    request_id,
+                    output_dir,
+                    document_type=None,
+                    auto_orientation=False,
+                )
+                self._save_json(
+                    output_dir / f"page_{page_number:03d}_{field}_roi_clean_ocr.json",
+                    variant_ocr,
+                )
+                candidates.append(("line_removed", variant_path.name, variant_ocr))
+
+            def candidate_value(candidate_ocr: Dict[str, Any]) -> Any:
+                return self._field_value_from_ocr(
+                    field, candidate_ocr.get("texts") or []
+                )
+
+            valid_candidates = []
+            for source, artifact, candidate_ocr in candidates:
+                candidate = candidate_value(candidate_ocr)
+                raw_candidate = candidate
+                if field in {"delegator_id", "trustee_id"}:
+                    raw_matches = re.findall(
+                        r"\d{17}[0-9Xx]",
+                        re.sub(
+                            r"\s+", "", "".join(candidate_ocr.get("texts") or [])
+                        ),
+                    )
+                    raw_candidate = raw_matches[0].upper() if raw_matches else ""
+                score_values = candidate_ocr.get("scores") or []
+                avg_score = (
+                    float(sum(score_values) / len(score_values))
+                    if score_values
+                    else 0.0
+                )
+                valid_candidates.append(
+                    {
+                        "source": source,
+                        "artifact": artifact,
+                        "value": raw_candidate,
+                        "checksum_valid": bool(
+                            field in {"delegator_id", "trustee_id"}
+                            and raw_candidate
+                            and self._is_valid_id_number(raw_candidate)
+                        ),
+                        "score": round(avg_score, 4),
+                    }
+                )
+
+            if field in {"delegator", "trustee"}:
+                usable = [
+                    item
+                    for item in valid_candidates
+                    if self._is_plausible_person_name(item["value"])
+                ]
+            elif field in {"delegator_id", "trustee_id"}:
+                usable = [item for item in valid_candidates if item["checksum_valid"]]
+            else:
+                usable = [item for item in valid_candidates if item["value"]]
+            selected = max(usable or valid_candidates, key=lambda item: item["score"])
+            raw_value = selected["value"]
             recovered["fields"][field] = {
                 "value": raw_value,
                 "region": region,
-                "artifact": crop_path.name,
-                "scores": ocr_result.get("scores") or [],
+                "artifact": selected["artifact"],
+                "scores": selected.get("score"),
+                "candidates": valid_candidates,
             }
             if field in {"delegator_id", "trustee_id"}:
-                recovered["fields"][field]["checksum_valid"] = bool(
-                    raw_value and self._is_valid_id_number(raw_value)
-                )
+                recovered["fields"][field]["checksum_valid"] = selected["checksum_valid"]
         return recovered
 
     @staticmethod
