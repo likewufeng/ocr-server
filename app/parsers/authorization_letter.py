@@ -228,7 +228,6 @@ class AuthorizationLetterParser:
             "signing_date": result.get("signing_date"),
             "delegator_signature": result.get("delegator_signature"),
             "trustee_signature": result.get("trustee_signature"),
-            "seal": result.get("seal"),
             "trustee_id_front": result.get("trustee_id_front"),
             "trustee_id_back": result.get("trustee_id_back"),
             "consistency_checks": result.get("consistency_checks", []),

@@ -41,6 +41,10 @@ _2029___年_4_月_25_日止。
         )
         self.assertEqual(result["signing_date"], "2026-04-15")
 
+    def test_personal_letter_response_does_not_include_seal(self):
+        result = self.parser.to_dict({"delegator": "吴烽"})
+        self.assertNotIn("seal", result["data"])
+
 
 class AuthorizationLetterEvidenceTest(unittest.TestCase):
     def setUp(self):
@@ -85,6 +89,70 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
         self.assertEqual(statuses["trustee_name_matches_id_front"], "failed")
         self.assertEqual(statuses["trustee_id_matches_id_front"], "failed")
         self.assertEqual(statuses["attachment_matches_delegator_not_trustee"], "failed")
+
+    def test_horizontal_id_page_is_split_into_front_and_back(self):
+        image = np.full((500, 1000, 3), 255, dtype=np.uint8)
+        ocr_result = {
+            "texts": [
+                "姓名吴烽",
+                "性别男民族汉",
+                "出生1991年8月15日",
+                "住址河南省渑池县",
+                "公民身份号码411221199108152534",
+                "中华人民共和国",
+                "居民身份证",
+                "签发机关渑池县公安局",
+                "有效期限2019.06.24-2039.06.24",
+            ],
+            "boxes": [
+                [80, 100, 220, 130],
+                [80, 140, 260, 170],
+                [80, 180, 300, 210],
+                [80, 220, 300, 250],
+                [80, 280, 380, 310],
+                [580, 80, 840, 120],
+                [580, 130, 850, 170],
+                [580, 240, 850, 270],
+                [580, 290, 900, 320],
+            ],
+        }
+        regions = self.service._split_id_regions(image, ocr_result)
+        self.assertEqual(set(regions), {"id_front", "id_back"})
+        self.assertLess(regions["id_front"][1][2], regions["id_back"][1][0])
+
+    def test_field_roi_accepts_only_checksum_valid_id_number(self):
+        self.assertEqual(
+            self.service._field_value_from_ocr(
+                "delegator_id", ["411221199108152534"]
+            ),
+            "411221199108152534",
+        )
+        self.assertEqual(
+            self.service._field_value_from_ocr(
+                "delegator_id", ["410105201703060622"]
+            ),
+            "",
+        )
+
+    def test_handwritten_role_roi_rejects_body_text_as_name(self):
+        self.assertEqual(
+            self.service._field_value_from_ocr(
+                "trustee", ["委托人因办理CA数字证书相关业务需要，兹委托受托人李身份"]
+            ),
+            "",
+        )
+        self.assertEqual(
+            self.service._field_value_from_ocr("trustee", ["受托人李四身份证号"]),
+            "李四",
+        )
+
+    def test_address_roi_rejects_neighboring_field_labels(self):
+        self.assertEqual(
+            self.service._field_value_from_ocr(
+                "delegator_address", ["身份证号码：410105住址：郑州市某区某路"]
+            ),
+            "郑州市某区某路",
+        )
 
 
 if __name__ == "__main__":

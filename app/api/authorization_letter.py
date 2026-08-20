@@ -109,15 +109,15 @@ async def parse_authorization_letter(
 @router.post(
     "/letter/parse-ocr",
     summary="解析扫描或混合型授权委托书",
-    response_description="授权书字段、身份证附件、签章证据和一致性校验结果",
+    response_description="授权书字段、身份证附件、签名证据和一致性校验结果",
 )
 async def parse_authorization_letter_ocr(
     file: UploadFile = File(
         ...,
         description=(
             "支持 PDF、JPG、JPEG、PNG、WEBP。适用于打印后手写签名、粘贴身份证"
-            "复印件、加盖实体印章，再扫描形成的最终材料。接口只检测签名和印章"
-            "是否存在，不验证真伪。"
+            "复印件后扫描形成的最终材料。接口只检测签名是否存在，不验证签名"
+            "真伪。个人授权书不检测或返回印章。"
         ),
     ),
 ):
@@ -126,9 +126,9 @@ async def parse_authorization_letter_ocr(
 
     - 文本 PDF 直接读取字符层，减少整页 OCR 延迟。
     - 扫描页使用当前 PP-OCRv6 模型。
-    - 身份证区域单独裁剪识别，并复用身份证正反面解析器。
+    - 横向并排的身份证正反面会分别裁剪识别，并复用身份证正反面解析器。
     - 返回正文受托人与身份证附件的姓名、号码一致性校验。
-    - 手写签名和红色印章只返回存在性证据，必须人工核验真实性。
+    - 手写签名只返回存在性证据，必须人工核验真实性。
     """
     return await _parse_uploaded_document(file)
 
@@ -144,7 +144,7 @@ async def parse_authorization_letter_text(
         min_length=1,
         description=(
             "已从授权委托书提取出的正文文本。该接口不处理身份证附件，也不检测"
-            "签名和印章；需要完整材料检查时应调用 /letter/parse-ocr。"
+            "签名；需要完整材料检查时应调用 /letter/parse-ocr。"
         ),
     )
 ):
@@ -159,10 +159,6 @@ async def parse_authorization_letter_text(
                     "manual_review_required": True,
                 },
                 "trustee_signature": {
-                    "status": "not_checked",
-                    "manual_review_required": True,
-                },
-                "seal": {
                     "status": "not_checked",
                     "manual_review_required": True,
                 },
@@ -185,7 +181,7 @@ async def parse_authorization_letter_raw(
         ...,
         description=(
             "仅支持 PDF。返回每页原生字符层，扫描页通常为空；该接口用于排查 PDF"
-            "本身是否包含可提取文本，不执行身份证、签名或印章识别。"
+            "本身是否包含可提取文本，不执行身份证或签名识别。"
         ),
     ),
 ):
