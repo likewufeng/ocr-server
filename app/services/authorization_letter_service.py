@@ -461,7 +461,10 @@ class AuthorizationLetterService:
                 compact,
             )
         if not match:
-            return ""
+            # A tight template ROI intentionally contains only handwritten
+            # characters and no role label.
+            candidate = cls._first_person_name(compact)
+            return candidate if cls._is_plausible_person_name(candidate) else ""
         value = re.sub(r"[^\u3400-\u9fff·]", "", match.group(1))
         if cls._is_plausible_person_name(value):
             return value
@@ -509,11 +512,14 @@ class AuthorizationLetterService:
             ]
 
         return {
-            "delegator": box(0.25, 0.09, 0.63, 0.17),
+            # Keep the title and the printed label out of the handwritten name.
+            "delegator": box(0.22, 0.095, 0.42, 0.16),
             "delegator_id": box(0.27, 0.14, 0.67, 0.22),
-            "delegator_address": box(0.20, 0.17, 0.90, 0.25),
+            "delegator_address": box(0.20, 0.17, 0.80, 0.25),
             "delegator_phone": box(0.25, 0.20, 0.67, 0.28),
-            "trustee": box(0.66, 0.25, 0.88, 0.34),
+            # The body line contains printed text before and after the name.
+            # This right-side slice covers the handwritten "李四" only.
+            "trustee": box(0.725, 0.255, 0.81, 0.31),
             "trustee_id": box(0.18, 0.29, 0.78, 0.37),
             "validity_period": box(0.45, 0.55, 0.95, 0.66),
             "signing_date": box(0.24, 0.72, 0.80, 0.81),
@@ -598,7 +604,10 @@ class AuthorizationLetterService:
             "signing_date": first(lambda text: "签署日期" in text, 0.90),
         }
         for field, item in line_matches.items():
-            if item:
+            if item and not (
+                field in {"delegator", "trustee"}
+                and item["box"][2] - item["box"][0] > int(width * 0.25)
+            ):
                 regions[field] = padded(item["box"])
 
         validity_items = [
@@ -647,9 +656,23 @@ class AuthorizationLetterService:
 
     @classmethod
     def _field_value_from_ocr(cls, field: str, texts: List[str]) -> Any:
-        compact = re.sub(r"\s+", "", "".join(texts or []))
         if field in {"delegator", "trustee"}:
-            return cls._role_name_from_text(compact, field)
+            # A tight handwritten ROI can still include a second printed line.
+            # Evaluate each OCR line first so "李四" is not merged with the
+            # following "委托人办" line into the false name "李四办".
+            for text in texts or []:
+                line = re.sub(r"\s+", "", text or "")
+                line_value = cls._role_name_from_text(line, field)
+                if field == "trustee" and line_value.startswith("人") and len(line_value) >= 3:
+                    line_value = line_value[1:]
+                if cls._is_plausible_person_name(line_value):
+                    return line_value
+            compact = re.sub(r"\s+", "", "".join(texts or []))
+            value = cls._role_name_from_text(compact, field)
+            if field == "trustee" and value.startswith("人") and len(value) >= 3:
+                value = value[1:]
+            return value
+        compact = re.sub(r"\s+", "", "".join(texts or []))
         if field in {"delegator_id", "trustee_id"}:
             matches = re.findall(r"\d{17}[0-9Xx]", compact)
             return next(

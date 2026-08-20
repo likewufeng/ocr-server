@@ -161,6 +161,31 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             )
         )
 
+    def test_tight_template_roi_keeps_handwritten_trustee_name_isolated(self):
+        image = np.zeros((2105, 1488, 3), dtype=np.uint8)
+        regions = self.service._ocr_field_regions(
+            image,
+            {
+                "texts": [
+                    "委托人：吴锋张",
+                    "委托人因办理CA数字证书相关业务需要，兹委托受托人李身份",
+                ],
+                "boxes": [[199, 212, 616, 321], [208, 566, 1258, 632]],
+            },
+        )
+        self.assertEqual(regions["delegator"], [327, 199, 624, 336])
+        self.assertEqual(regions["trustee"], [1078, 536, 1205, 652])
+        self.assertEqual(
+            self.service._field_value_from_ocr("trustee", ["李四"]), "李四"
+        )
+        self.assertEqual(
+            self.service._field_value_from_ocr("trustee", ["人李四"]), "李四"
+        )
+        self.assertEqual(
+            self.service._field_value_from_ocr("trustee", ["李四", "委托人办"]),
+            "李四",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
