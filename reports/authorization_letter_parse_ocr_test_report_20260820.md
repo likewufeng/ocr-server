@@ -267,6 +267,7 @@ page_001_trustee_signature_01.jpg
 - 不再生成 `review_required`；
 - 不比较正文委托人/受托人与身份证附件的姓名或身份证号；
 - 保留正文 OCR 字段、身份证正反面识别结果、签名笔迹检测结果、ROI 图片和候选 OCR 明细；
+- 对检测到的签名区域增加文字 OCR，返回 `recognized_text`、`recognized_texts`、`recognition_score`，并保存 `*_signature_*_ocr.json`；
 - `manual_review_required` 仅表示识别证据不能替代人工真实性核验，不是接口审核结论；
 - 业务系统自行根据字段内容完成一致性比对、审核和后续流程。
 

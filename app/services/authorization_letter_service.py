@@ -449,6 +449,53 @@ class AuthorizationLetterService:
         signature["artifact"] = artifact
         return signature
 
+    @classmethod
+    def _signature_text_from_ocr(
+        cls, role: str, ocr_result: Dict[str, Any]
+    ) -> str:
+        """Extract a conservative text candidate from signature ROI OCR."""
+        texts = ocr_result.get("texts") or []
+        return cls._field_value_from_ocr(role, texts) or ""
+
+    async def _enrich_signature_content(
+        self,
+        signature: Dict[str, Any],
+        role: str,
+        request_id: str,
+        output_dir: Path,
+    ) -> Dict[str, Any]:
+        """OCR the saved signature ROI and attach recognition evidence only."""
+        artifact = signature.get("artifact")
+        if signature.get("status") != "detected" or not artifact:
+            signature.setdefault("recognized_text", "")
+            signature.setdefault("recognized_texts", [])
+            signature.setdefault("recognition_score", 0.0)
+            return signature
+
+        ocr_result = await self._recognize(
+            output_dir / artifact,
+            request_id,
+            output_dir,
+            document_type=None,
+            auto_orientation=False,
+        )
+        ocr_artifact = f"{Path(artifact).stem}_ocr.json"
+        self._save_json(output_dir / ocr_artifact, ocr_result)
+        scores = [float(score) for score in (ocr_result.get("scores") or [])]
+        signature.update(
+            {
+                "recognized_text": self._signature_text_from_ocr(role, ocr_result),
+                "recognized_texts": ocr_result.get("texts") or [],
+                "recognition_score": round(
+                    float(sum(scores) / len(scores)), 4
+                )
+                if scores
+                else 0.0,
+                "recognition_artifact": ocr_artifact,
+            }
+        )
+        return signature
+
     @staticmethod
     def _is_valid_id_number(value: str) -> bool:
         normalized = re.sub(r"\s+", "", value or "").upper()
@@ -1192,13 +1239,22 @@ class AuthorizationLetterService:
                 ),
             )
 
+        delegator_signature = best_signature("delegator")
+        trustee_signature = best_signature("trustee")
+        await self._enrich_signature_content(
+            delegator_signature, "delegator", request_id, output_dir
+        )
+        await self._enrich_signature_content(
+            trustee_signature, "trustee", request_id, output_dir
+        )
+
         parsed.update(
             {
                 "pages": page_records,
                 "raw_text": raw_text,
                 "source": "hybrid_pdf_ocr" if suffix == ".pdf" else "image_ocr",
-                "delegator_signature": best_signature("delegator"),
-                "trustee_signature": best_signature("trustee"),
+                "delegator_signature": delegator_signature,
+                "trustee_signature": trustee_signature,
                 "trustee_id_front": front,
                 "trustee_id_back": back,
             }

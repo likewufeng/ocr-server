@@ -91,7 +91,7 @@ async def _parse_uploaded_document(file: UploadFile):
 @router.post(
     "/letter/parse",
     summary="解析授权委托书",
-    response_description="授权书字段、身份证附件和签名识别证据",
+    response_description="授权书字段、身份证附件和签名笔迹及文字识别证据",
 )
 async def parse_authorization_letter(
     file: UploadFile = File(
@@ -117,7 +117,7 @@ async def parse_authorization_letter_ocr(
         description=(
             "支持 PDF、JPG、JPEG、PNG、WEBP。适用于打印后手写签名、粘贴身份证"
             "复印件后扫描形成的最终材料。接口只检测签名是否存在，不验证签名"
-            "真伪。个人授权书不检测或返回印章。"
+            "真伪；签名区域会尝试 OCR 识别文字并返回候选，不执行签名人比对。"
         ),
     ),
 ):

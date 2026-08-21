@@ -85,6 +85,15 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             self.assertEqual(saved["artifact"], "page_001_delegator_signature_01.jpg")
             self.assertTrue((Path(directory) / saved["artifact"]).exists())
 
+    def test_signature_ocr_content_uses_first_valid_name_line(self):
+        self.assertEqual(
+            self.service._signature_text_from_ocr(
+                "trustee",
+                {"texts": ["李四", "委托人办"]},
+            ),
+            "李四",
+        )
+
     def test_horizontal_id_page_is_split_into_front_and_back(self):
         image = np.full((500, 1000, 3), 255, dtype=np.uint8)
         ocr_result = {
