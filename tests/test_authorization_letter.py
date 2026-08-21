@@ -134,6 +134,11 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             "",
         )
 
+    def test_invalid_id_candidate_can_be_retained_for_manual_review(self):
+        value = "410105201703060622"
+        self.assertEqual(len(value), 18)
+        self.assertFalse(self.service._is_valid_id_number(value))
+
     def test_handwritten_role_roi_rejects_body_text_as_name(self):
         self.assertEqual(
             self.service._field_value_from_ocr(

@@ -1171,10 +1171,11 @@ class AuthorizationLetterService:
                     elif not self._is_plausible_person_name(parsed.get(field)):
                         parsed[field] = None
                 elif field in {"delegator_id", "trustee_id"}:
-                    if detail.get("checksum_valid"):
+                    # Preserve a complete OCR candidate even when its checksum
+                    # is invalid. Callers need the raw value for correction and
+                    # audit; checksum_valid remains the safety signal.
+                    if value:
                         parsed[field] = value
-                    elif value:
-                        parsed[field] = None
                 elif field == "delegator_address" and not value:
                     parsed[field] = None
                 elif value:
