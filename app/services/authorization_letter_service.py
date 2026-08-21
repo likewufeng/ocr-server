@@ -892,73 +892,6 @@ class AuthorizationLetterService:
                 recovered["fields"][field]["checksum_valid"] = selected["checksum_valid"]
         return recovered
 
-    @staticmethod
-    def _check(
-        code: str,
-        expected: Optional[str],
-        actual: Optional[str],
-        label: str,
-    ) -> Dict[str, Any]:
-        if not expected or not actual:
-            status = "unavailable"
-        else:
-            status = "passed" if expected == actual else "failed"
-        return {
-            "code": code,
-            "label": label,
-            "status": status,
-            "expected": expected,
-            "actual": actual,
-        }
-
-    def _build_consistency_checks(
-        self,
-        parsed: Dict[str, Any],
-        front: Optional[Dict[str, Any]],
-        back: Optional[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        front_data = (front or {}).get("data") or {}
-        checks = [
-            self._check(
-                "trustee_name_matches_id_front",
-                parsed.get("trustee"),
-                front_data.get("name"),
-                "正文受托人姓名与身份证正面姓名一致",
-            ),
-            self._check(
-                "trustee_id_matches_id_front",
-                parsed.get("trustee_id"),
-                front_data.get("id_number"),
-                "正文受托人身份证号与身份证正面号码一致",
-            ),
-            {
-                "code": "id_front_present",
-                "label": "已检测到受托人身份证正面",
-                "status": "passed" if front else "failed",
-            },
-            {
-                "code": "id_back_present",
-                "label": "已检测到受托人身份证反面",
-                "status": "passed" if back else "failed",
-            },
-        ]
-        if (
-            front_data.get("id_number")
-            and parsed.get("delegator_id")
-            and front_data["id_number"] == parsed["delegator_id"]
-            and front_data["id_number"] != parsed.get("trustee_id")
-        ):
-            checks.append(
-                {
-                    "code": "attachment_matches_delegator_not_trustee",
-                    "label": "附件身份证属于委托人而非正文受托人",
-                    "status": "failed",
-                    "expected": parsed.get("trustee_id"),
-                    "actual": front_data.get("id_number"),
-                }
-            )
-        return checks
-
     async def parse_document(
         self,
         path: Path,
@@ -1259,7 +1192,6 @@ class AuthorizationLetterService:
                 ),
             )
 
-        consistency_checks = self._build_consistency_checks(parsed, front, back)
         parsed.update(
             {
                 "pages": page_records,
@@ -1269,8 +1201,6 @@ class AuthorizationLetterService:
                 "trustee_signature": best_signature("trustee"),
                 "trustee_id_front": front,
                 "trustee_id_back": back,
-                "consistency_checks": consistency_checks,
-                "review_required": True,
             }
         )
         result = self.text_parser.to_dict(
@@ -1284,7 +1214,7 @@ class AuthorizationLetterService:
                 "artifacts_dir": str(output_dir),
                 "field_roi_recovery": field_recovery,
                 "manual_review_notice": (
-                    "签名和身份证仅做存在性及字段一致性检查，真实性必须人工核验。"
+                    "接口仅输出 OCR 字段和签名笔迹等识别证据，不执行业务审核或字段比对。"
                 ),
             },
         )

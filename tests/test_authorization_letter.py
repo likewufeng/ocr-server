@@ -85,25 +85,6 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             self.assertEqual(saved["artifact"], "page_001_delegator_signature_01.jpg")
             self.assertTrue((Path(directory) / saved["artifact"]).exists())
 
-    def test_attachment_identity_mismatch_is_reported(self):
-        parsed = {
-            "delegator_id": "411221199108152534",
-            "trustee": "张三",
-            "trustee_id": "410105199204152423",
-        }
-        front = {
-            "data": {
-                "type": "id_front",
-                "name": "吴烽",
-                "id_number": "411221199108152534",
-            }
-        }
-        checks = self.service._build_consistency_checks(parsed, front, None)
-        statuses = {item["code"]: item["status"] for item in checks}
-        self.assertEqual(statuses["trustee_name_matches_id_front"], "failed")
-        self.assertEqual(statuses["trustee_id_matches_id_front"], "failed")
-        self.assertEqual(statuses["attachment_matches_delegator_not_trustee"], "failed")
-
     def test_horizontal_id_page_is_split_into_front_and_back(self):
         image = np.full((500, 1000, 3), 255, dtype=np.uint8)
         ocr_result = {

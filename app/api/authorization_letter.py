@@ -91,7 +91,7 @@ async def _parse_uploaded_document(file: UploadFile):
 @router.post(
     "/letter/parse",
     summary="解析授权委托书",
-    response_description="授权书字段、附件和一致性校验结果",
+    response_description="授权书字段、身份证附件和签名识别证据",
 )
 async def parse_authorization_letter(
     file: UploadFile = File(
@@ -109,7 +109,7 @@ async def parse_authorization_letter(
 @router.post(
     "/letter/parse-ocr",
     summary="解析扫描或混合型授权委托书",
-    response_description="授权书字段、身份证附件、签名证据和一致性校验结果",
+    response_description="授权书字段、身份证附件和签名识别证据",
 )
 async def parse_authorization_letter_ocr(
     file: UploadFile = File(
@@ -127,7 +127,7 @@ async def parse_authorization_letter_ocr(
     - 文本 PDF 直接读取字符层，减少整页 OCR 延迟。
     - 扫描页使用当前 PP-OCRv6 模型。
     - 横向并排的身份证正反面会分别裁剪识别，并复用身份证正反面解析器。
-    - 返回正文受托人与身份证附件的姓名、号码一致性校验。
+    - 仅返回 OCR 字段和识别证据，不执行姓名、身份证号一致性比对或业务审核。
     - 手写签名只返回存在性证据，必须人工核验真实性。
     """
     return await _parse_uploaded_document(file)
@@ -162,7 +162,6 @@ async def parse_authorization_letter_text(
                     "status": "not_checked",
                     "manual_review_required": True,
                 },
-                "review_required": True,
             }
         )
         return ApiResponse.success(text_parser.to_dict(parsed))

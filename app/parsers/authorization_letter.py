@@ -230,8 +230,6 @@ class AuthorizationLetterParser:
             "trustee_signature": result.get("trustee_signature"),
             "trustee_id_front": result.get("trustee_id_front"),
             "trustee_id_back": result.get("trustee_id_back"),
-            "consistency_checks": result.get("consistency_checks", []),
-            "review_required": bool(result.get("review_required", False)),
         }
         response_metadata = {
             "pages_count": len(result.get("pages", [])),
