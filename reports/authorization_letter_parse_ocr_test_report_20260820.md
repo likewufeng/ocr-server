@@ -217,6 +217,15 @@ unittest tests.test_authorization_letter: 11 passed
 
 接口仍会返回 `code=0` 和 `status=success`，但两份材料的 `review_required` 都为 `true`。调用方应重点检查身份证正反面是否存在、签名状态、`consistency_checks` 和 `metadata.field_roi_recovery`，不能把接口成功等同于业务审核通过。
 
+签名检测使用的局部图片已保存。新请求的输出目录中会出现类似以下文件，并且最终签名结果会返回对应的 `artifact`：
+
+```text
+page_001_delegator_signature_01.jpg
+page_001_trustee_signature_01.jpg
+```
+
+旧请求在本功能上线前生成，因此只有坐标没有签名 ROI 图片；重新调用接口后即可生成。
+
 ## 9. 排查文件位置
 
 ### 机打版

@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import cv2
 import numpy as np
@@ -70,6 +72,18 @@ class AuthorizationLetterEvidenceTest(unittest.TestCase):
             image, 1, [0, 0, 600, 120], "test"
         )
         self.assertEqual(result["status"], "detected")
+
+    def test_signature_region_is_saved_as_artifact(self):
+        image = np.full((120, 600, 3), 255, dtype=np.uint8)
+        result = self.service._signature_from_region(
+            image, 1, [10, 20, 200, 100], "test"
+        )
+        with TemporaryDirectory() as directory:
+            saved = self.service._save_signature_artifact(
+                result, image, Path(directory), "delegator", 1
+            )
+            self.assertEqual(saved["artifact"], "page_001_delegator_signature_01.jpg")
+            self.assertTrue((Path(directory) / saved["artifact"]).exists())
 
     def test_attachment_identity_mismatch_is_reported(self):
         parsed = {

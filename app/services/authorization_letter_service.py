@@ -423,6 +423,32 @@ class AuthorizationLetterService:
             source="template_signature_region",
         )
 
+    @classmethod
+    def _save_signature_artifact(
+        cls,
+        signature: Dict[str, Any],
+        page_image: np.ndarray,
+        output_dir: Path,
+        role: str,
+        ordinal: int,
+    ) -> Dict[str, Any]:
+        """Persist the signature ROI used for the existence decision."""
+        left, top, right, bottom = [int(value) for value in signature["region"]]
+        height, width = page_image.shape[:2]
+        left = max(0, min(width, left))
+        top = max(0, min(height, top))
+        right = max(left, min(width, right))
+        bottom = max(top, min(height, bottom))
+        if right <= left or bottom <= top:
+            return signature
+        artifact = f"page_{signature['page_number']:03d}_{role}_signature_{ordinal:02d}.jpg"
+        cls._write_image(
+            output_dir / artifact,
+            page_image[top:bottom, left:right],
+        )
+        signature["artifact"] = artifact
+        return signature
+
     @staticmethod
     def _is_valid_id_number(value: str) -> bool:
         normalized = re.sub(r"\s+", "", value or "").upper()
@@ -951,6 +977,26 @@ class AuthorizationLetterService:
             "delegator": [],
             "trustee": [],
         }
+
+        def add_signature_candidate(
+            role: str,
+            signature: Optional[Dict[str, Any]],
+            page_image: np.ndarray,
+            page_number: int,
+        ) -> None:
+            if not signature:
+                return
+            ordinal = len(signature_candidates[role]) + 1
+            signature_candidates[role].append(
+                self._save_signature_artifact(
+                    signature,
+                    page_image,
+                    output_dir,
+                    role,
+                    ordinal,
+                )
+            )
+
         form_pages: List[Tuple[int, np.ndarray, Dict[str, Any]]] = []
 
         if suffix == ".pdf":
@@ -1040,13 +1086,16 @@ class AuthorizationLetterService:
                                 role = self._nearest_signature_role(
                                     page, region_list, scale
                                 )
-                                signature_candidates[role].append(
+                                add_signature_candidate(
+                                    role,
                                     self._signature_from_region(
                                         crop,
                                         page_index,
                                         region_list,
                                         source="embedded_image",
-                                    )
+                                    ),
+                                    page_image,
+                                    page_index,
                                 )
 
                 native_char_count = len(re.sub(r"\s+", "", native_text))
@@ -1121,24 +1170,25 @@ class AuthorizationLetterService:
 
                     for role in ("delegator", "trustee"):
                         if is_form_page:
-                            signature_candidates[role].append(
+                            add_signature_candidate(
+                                role,
                                 self._signature_from_template_region(
                                     page_image, role, page_index
-                                )
+                                ),
+                                page_image,
+                                page_index,
                             )
                         signature = self._signature_near_ocr_label(
                             page_image, page_ocr, role, page_index
                         )
-                        if signature:
-                            signature_candidates[role].append(signature)
+                        add_signature_candidate(role, signature, page_image, page_index)
                 else:
                     page_texts.append(native_text)
                     for role in ("delegator", "trustee"):
                         signature = self._signature_near_pdf_label(
                             page, page_image, scale, role, page_index
                         )
-                        if signature:
-                            signature_candidates[role].append(signature)
+                        add_signature_candidate(role, signature, page_image, page_index)
 
                 page_records.append(
                     {
