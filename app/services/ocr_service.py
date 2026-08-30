@@ -59,6 +59,8 @@ from app.config import OCR_MODEL_VARIANT
 from app.config import OCR_MODEL_VERSION
 from app.config import OCR_PREPROCESSED_JPEG_QUALITY
 from app.config import OCR_SAVE_PREPROCESSED_IMAGE
+from app.config import STAMP_TEXT_DET_ENABLED
+from app.config import STAMP_TEXT_DET_MODEL_DIR
 from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
 from app.config import OCR_USE_DOC_ORIENTATION
 from app.config import OCR_USE_DOC_UNWARPING
@@ -202,6 +204,38 @@ def _create_ocr_pipeline(config: dict[str, Any]):
     return create_pipeline(**create_options)
 
 
+def _build_stamp_text_config() -> dict[str, Any]:
+    """构造可选的 ReST 印章文字检测 pipeline。
+
+    ReST 只训练文字区域检测，识别器继续使用项目当前的官方识别模型。
+    """
+    detection_config = {
+        "model_name": "PP-OCRv4_mobile_seal_det",
+        "model_dir": str(STAMP_TEXT_DET_MODEL_DIR),
+        "unclip_ratio": 0.5,
+    }
+    recognition_config = {
+        "model_name": official_recognition_model,
+        "batch_size": OCR_TEXT_RECOGNITION_BATCH_SIZE,
+    }
+    if official_recognition_model_path.is_dir():
+        recognition_config["model_dir"] = str(official_recognition_model_path)
+    if OCR_INFERENCE_BACKEND == "paddle":
+        recognition_config["engine"] = OCR_MODEL_ENGINE
+
+    return {
+        "pipeline_name": "OCR",
+        "text_type": "seal",
+        "use_doc_preprocessor": False,
+        "use_textline_orientation": False,
+        "batch_size": 1,
+        "SubModules": {
+            "TextDetection": detection_config,
+            "TextRecognition": recognition_config,
+        },
+    }
+
+
 class OCRService:
 
     def __init__(self):
@@ -209,6 +243,8 @@ class OCRService:
         self.layout_pipeline = None
         self.bank_card_roi_localizer = None
         self.bank_card_roi_error = None
+        self.stamp_text_pipeline = None
+        self.stamp_text_model_error = None
         self.pipeline_uses_fine_tuned_detector = False
         self._inference_executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="ocr-inference"
@@ -714,6 +750,60 @@ class OCRService:
         """将推理提交到唯一的固定线程，避免 predictor 跨线程复用。"""
         return self._inference_executor.submit(self.recognize, image_path, **kwargs)
 
+    def _initialize_stamp_text_pipeline(self) -> None:
+        """按需加载 ReST 印章文字检测模型，且只在推理线程中初始化一次。"""
+        if not STAMP_TEXT_DET_ENABLED or self.stamp_text_pipeline is not None:
+            return
+        if self.stamp_text_model_error is not None:
+            raise RuntimeError(self.stamp_text_model_error)
+        if not STAMP_TEXT_DET_MODEL_DIR.is_dir():
+            self.stamp_text_model_error = (
+                "印章文字检测模型目录不存在: {}".format(STAMP_TEXT_DET_MODEL_DIR)
+            )
+            raise RuntimeError(self.stamp_text_model_error)
+        try:
+            self.stamp_text_pipeline = _create_ocr_pipeline(_build_stamp_text_config())
+            logger.info(
+                "Stamp text detector ready: model_dir={}", STAMP_TEXT_DET_MODEL_DIR
+            )
+        except Exception as exc:
+            self.stamp_text_model_error = str(exc)
+            logger.warning("Stamp text detector unavailable: {}", exc)
+            raise
+
+    def recognize_stamp_text(self, image_path: str) -> dict[str, Any]:
+        """使用 ReST 微调检测器识别原始单印章图中的文字区域。"""
+        if not STAMP_TEXT_DET_ENABLED:
+            return {"texts": [], "scores": [], "boxes": [], "polys": []}
+        self._initialize_stamp_text_pipeline()
+        texts: list[str] = []
+        scores: list[float] = []
+        boxes: list[list] = []
+        polys: list[list] = []
+        for result in self.stamp_text_pipeline.predict(image_path):
+            rec_texts = list(result.get("rec_texts", []))
+            rec_scores = list(result.get("rec_scores", []))
+            rec_boxes = list(result.get("rec_boxes", []))
+            dt_polys = list(result.get("dt_polys", []))
+            for index, text in enumerate(rec_texts):
+                score = float(rec_scores[index]) if index < len(rec_scores) else 0.0
+                if not text or score < 0.25:
+                    continue
+                texts.append(self.postprocess_texts([str(text)])[0])
+                scores.append(score)
+                # PaddleX 在 seal pipeline 的个别空检测结果中可能只返回
+                # rec_texts/rec_scores，缺少与之对应的框；文字仍保留，框置空。
+                rec_box = rec_boxes[index] if index < len(rec_boxes) else []
+                poly = dt_polys[index] if index < len(dt_polys) else []
+                boxes.append(rec_box.tolist() if hasattr(rec_box, "tolist") else list(rec_box))
+                polys.append(poly.tolist() if hasattr(poly, "tolist") else list(poly))
+            break
+        return {"texts": texts, "scores": scores, "boxes": boxes, "polys": polys}
+
+    def submit_recognize_stamp_text(self, image_path: str):
+        """将印章文字检测提交到与主 OCR 相同的固定推理线程。"""
+        return self._inference_executor.submit(self.recognize_stamp_text, image_path)
+
     def submit_recover_id_front_fields(self, image_path: str, **kwargs):
         """Run conditional ID-front field recovery on the predictor-owning thread."""
         return self._inference_executor.submit(
@@ -853,6 +943,11 @@ class OCRService:
             )
 
     def shutdown(self) -> None:
+        if self.stamp_text_pipeline is not None:
+            close = getattr(self.stamp_text_pipeline, "close", None)
+            if callable(close):
+                close()
+            self.stamp_text_pipeline = None
         self._inference_executor.shutdown(wait=True)
         self._artifact_executor.shutdown(wait=True)
         metrics.set_model_ready(False)

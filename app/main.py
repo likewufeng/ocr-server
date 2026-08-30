@@ -69,6 +69,7 @@ from app.api.health import router as health_router
 from app.api.metrics import router as metrics_router
 from app.api.ocr import router as ocr_router
 from app.api.authorization_letter import router as auth_letter_router
+from app.api.stamp import router as stamp_router
 from app.lifecycle import lifespan
 from app.config import APP_NAME
 from app.schemas.response import ApiResponse
@@ -132,6 +133,7 @@ app.include_router(health_router)
 app.include_router(metrics_router)
 app.include_router(ocr_router)
 app.include_router(auth_letter_router)
+app.include_router(stamp_router)
 
 @app.get("/")
 async def root():

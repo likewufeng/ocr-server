@@ -1,0 +1,42 @@
+# ReST 印章文字检测微调配置。
+# 训练前先运行 scripts/prepare_rest_paddlex_det.py 生成 dataset。
+Global:
+  model: PP-OCRv4_mobile_seal_det
+  mode: train
+  module: text_det
+  dataset_dir: "training/dataset/rest_seal_det"
+  device: gpu:0
+  output: "training/output/rest_seal_det"
+
+CheckDataset:
+  convert:
+    enable: False
+    src_dataset_type: null
+  split:
+    enable: False
+    train_percent: null
+    val_percent: null
+
+Train:
+  epochs_iters: 80
+  batch_size: 8
+  learning_rate: 0.0005
+  pretrain_weight_path: https://paddle-model-ecology.bj.bcebos.com/paddlex/official_pretrained_model/PP-OCRv4_mobile_seal_det_pretrained.pdparams
+  resume_path: null
+  log_interval: 10
+  eval_interval: 1
+  save_interval: 1
+
+Evaluate:
+  weight_path: "training/output/rest_seal_det/best_accuracy/best_accuracy.pdparams"
+  log_interval: 1
+
+Export:
+  weight_path: "training/output/rest_seal_det/best_accuracy/best_accuracy.pdparams"
+
+Predict:
+  batch_size: 1
+  model_dir: "training/output/rest_seal_det/best_accuracy/inference"
+  input: ""
+  kernel_option:
+    run_mode: paddle

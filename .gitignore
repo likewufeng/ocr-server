@@ -40,3 +40,15 @@ release/
 
 # 含真实接口响应、卡号和 request_id 的本地 A/B 对照记录
 reports/bank_card_roi_ab_*.txt
+
+# ReST 原始标注转换结果，含文字标注和本机数据集相对路径，不提交仓库
+reports/rest_manifest.jsonl
+
+# ReST 训练副本、权重和导出模型，不提交仓库
+training/dataset/rest_seal_det*/
+training/output/rest_seal_det*/
+training/configs/
+
+# 本地下载或训练导出的模型文件，不提交仓库
+models/pretrained_cache/
+models/stamp_text_det_rest/

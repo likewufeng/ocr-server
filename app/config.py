@@ -42,6 +42,14 @@ OUTPUT_DIR = BASE_DIR / os.getenv("OUTPUT_DIR", "data/outputs")
 CACHE_DIR = BASE_DIR / os.getenv("CACHE_DIR", "data/cache")
 MODEL_DIR = BASE_DIR / os.getenv("MODEL_DIR", "models")
 LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
+# ReST 微调出的印章文字检测模型目录。模型只在显式开启后加载，避免未导出
+# 或未验证的训练产物影响现有 OCR 接口。
+STAMP_TEXT_DET_ENABLED = _env_bool("STAMP_TEXT_DET_ENABLED", False)
+STAMP_TEXT_DET_MODEL_DIR = Path(
+    os.getenv("STAMP_TEXT_DET_MODEL_DIR", "models/stamp_text_det_rest")
+)
+if not STAMP_TEXT_DET_MODEL_DIR.is_absolute():
+    STAMP_TEXT_DET_MODEL_DIR = BASE_DIR / STAMP_TEXT_DET_MODEL_DIR
 # 银行名称别名、卡种文案和 BIN/IIN 数据文件。生产环境可挂载更新该文件，无需修改解析代码。
 BANK_CARD_CATALOG_FILE = BASE_DIR / os.getenv(
     "BANK_CARD_CATALOG_FILE", "app/resources/bank_card/catalog.json"
@@ -299,6 +307,15 @@ OCR_CACHE_VERSION = os.getenv("OCR_CACHE_VERSION", "7").strip()
 OCR_MAX_CONCURRENT_REQUESTS = max(
     1, int(os.getenv("OCR_MAX_CONCURRENT_REQUESTS", "1"))
 )
+
+
+# ---------- 印章识别依赖服务 ----------
+# stamp-ai-service 只负责整页印章检测、定位和裁切；本服务负责单印章分析及 OCR。
+STAMP_SERVICE_URL = os.getenv("STAMP_SERVICE_URL", "http://127.0.0.1:18080").rstrip("/")
+STAMP_SERVICE_TIMEOUT_SECONDS = max(
+    1, int(os.getenv("STAMP_SERVICE_TIMEOUT_SECONDS", "30"))
+)
+STAMP_SERVICE_API_KEY = os.getenv("STAMP_SERVICE_API_KEY", "").strip()
 
 
 # ---------- 启动时确保运行目录存在 ----------

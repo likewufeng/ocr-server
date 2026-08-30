@@ -56,6 +56,11 @@ x-ocr-service: &ocr-service
     METRICS_ENABLED: ${METRICS_ENABLED:-true}
     OMP_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
     MKL_NUM_THREADS: ${OCR_SCALE_CPU_THREADS:-4}
+    STAMP_SERVICE_URL: ${STAMP_SERVICE_URL:-http://127.0.0.1:18080}
+    STAMP_SERVICE_TIMEOUT_SECONDS: ${STAMP_SERVICE_TIMEOUT_SECONDS:-30}
+    STAMP_SERVICE_API_KEY: ${STAMP_SERVICE_API_KEY:-}
+    STAMP_TEXT_DET_ENABLED: ${STAMP_TEXT_DET_ENABLED:-false}
+    STAMP_TEXT_DET_MODEL_DIR: ${STAMP_TEXT_DET_MODEL_DIR:-models/stamp_text_det_rest}
   command: uvicorn app.main:app --host 0.0.0.0 --port 8000
   healthcheck:
     test: ["CMD", "wget", "--quiet", "--output-document=/dev/null", "http://127.0.0.1:8000/health"]
