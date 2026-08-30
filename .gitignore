@@ -52,3 +52,5 @@ training/configs/
 # 本地下载或训练导出的模型文件，不提交仓库
 models/pretrained_cache/
 models/stamp_text_det_rest/
+models/official_models/PP-OCRv4_server_seal_det/
+models/official_models/PP-OCRv4_server_rec/

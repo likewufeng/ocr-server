@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 
 from app.config import (
+    STAMP_RECOGNITION_ENABLED,
     STAMP_TEXT_DET_ENABLED,
     STAMP_SERVICE_API_KEY,
     STAMP_SERVICE_TIMEOUT_SECONDS,
@@ -321,15 +322,30 @@ class StampOCRService:
         if not cv2.imwrite(str(input_path), ocr_image):
             raise ValueError("印章预处理图片保存失败")
         # 姣忔鍏堣窇宸茬粡楠岃瘉鐨勫渾绔犲睍寮€ OCR锛岀‘淇濆熀绾垮彲鐢ㄣ€?
-        result = ocr_service.submit_recognize(
-            str(input_path), request_id=request_id, output_dir=output_dir,
-            document_type=None, auto_orientation=False, min_score=0.35,
-        ).result()
+        result = None
+        recognition_source = "baseline"
+        source_path = output_dir / (artifact_prefix + "_source.png")
+        if STAMP_RECOGNITION_ENABLED and cv2.imwrite(str(source_path), image[:, :, :3]):
+            try:
+                official_result = ocr_service.submit_recognize_stamp_with_official_model(
+                    str(source_path)
+                ).result()
+                if official_result and official_result.get("texts"):
+                    result = official_result
+                    recognition_source = "official_seal_recognition"
+            except Exception:
+                # 专用模型缺失或加载失败时回退现有 OCR。
+                pass
+
+        if result is None:
+            result = ocr_service.submit_recognize(
+                str(input_path), request_id=request_id, output_dir=output_dir,
+                document_type=None, auto_orientation=False, min_score=0.35,
+            ).result()
         # ReST 微调检测器针对原始曲线文字；没有模型、模型报错或没有检出时，
         # 回退到现有的圆章展开 OCR，保证新增能力不改变默认行为。
-        if STAMP_TEXT_DET_ENABLED:
+        if recognition_source == "baseline" and STAMP_TEXT_DET_ENABLED:
             try:
-                source_path = output_dir / (artifact_prefix + "_source.png")
                 if cv2.imwrite(str(source_path), image[:, :, :3]):
                     rest_result = ocr_service.submit_recognize_stamp_text(
                         str(source_path)
@@ -357,6 +373,7 @@ class StampOCRService:
             "artifacts": {
                 "ocr_image": input_path.name,
                 "unwrapped_image": artifact_path.name if debug and shape in ("circle", "ellipse") else None,
+                "recognition_source": recognition_source,
             },
         }
 

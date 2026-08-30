@@ -59,6 +59,9 @@ from app.config import OCR_MODEL_VARIANT
 from app.config import OCR_MODEL_VERSION
 from app.config import OCR_PREPROCESSED_JPEG_QUALITY
 from app.config import OCR_SAVE_PREPROCESSED_IMAGE
+from app.config import STAMP_RECOGNITION_DET_MODEL_DIR
+from app.config import STAMP_RECOGNITION_ENABLED
+from app.config import STAMP_RECOGNITION_REC_MODEL_DIR
 from app.config import STAMP_TEXT_DET_ENABLED
 from app.config import STAMP_TEXT_DET_MODEL_DIR
 from app.config import OCR_TEXT_RECOGNITION_BATCH_SIZE
@@ -178,9 +181,9 @@ def _build_ocr_config(use_fine_tuned: bool = True) -> dict[str, Any]:
     return config
 
 
-def _create_ocr_pipeline(config: dict[str, Any]):
+def _create_inference_pipeline(config: dict[str, Any], pipeline_name: str):
     create_options = {
-        "pipeline": "OCR",
+        "pipeline": pipeline_name,
         "config": config,
         "device": OCR_DEVICE,
     }
@@ -202,6 +205,10 @@ def _create_ocr_pipeline(config: dict[str, Any]):
             cpu_threads=OCR_CPU_THREADS,
         )
     return create_pipeline(**create_options)
+
+
+def _create_ocr_pipeline(config: dict[str, Any]):
+    return _create_inference_pipeline(config, "OCR")
 
 
 def _build_stamp_text_config() -> dict[str, Any]:
@@ -236,6 +243,43 @@ def _build_stamp_text_config() -> dict[str, Any]:
     }
 
 
+def _build_stamp_recognition_config() -> dict[str, Any]:
+    """Build PaddleX's seal-recognition pipeline for one already-cropped seal."""
+    return {
+        "pipeline_name": "seal_recognition",
+        "use_doc_preprocessor": False,
+        "use_layout_detection": False,
+        "batch_size": 1,
+        "SubPipelines": {
+            "SealOCR": {
+                "pipeline_name": "OCR",
+                "text_type": "seal",
+                "use_doc_preprocessor": False,
+                "use_textline_orientation": False,
+                "SubModules": {
+                    "TextDetection": {
+                        "module_name": "seal_text_detection",
+                        "model_name": "PP-OCRv4_server_seal_det",
+                        "model_dir": str(STAMP_RECOGNITION_DET_MODEL_DIR),
+                        "limit_side_len": 736,
+                        "limit_type": "min",
+                        "thresh": 0.2,
+                        "box_thresh": 0.6,
+                        "unclip_ratio": 0.5,
+                    },
+                    "TextRecognition": {
+                        "module_name": "text_recognition",
+                        "model_name": "PP-OCRv4_server_rec",
+                        "model_dir": str(STAMP_RECOGNITION_REC_MODEL_DIR),
+                        "batch_size": 1,
+                        "score_thresh": 0.05,
+                    },
+                },
+            }
+        },
+    }
+
+
 class OCRService:
 
     def __init__(self):
@@ -245,6 +289,8 @@ class OCRService:
         self.bank_card_roi_error = None
         self.stamp_text_pipeline = None
         self.stamp_text_model_error = None
+        self.stamp_recognition_pipeline = None
+        self.stamp_recognition_model_error = None
         self.pipeline_uses_fine_tuned_detector = False
         self._inference_executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="ocr-inference"
@@ -804,6 +850,68 @@ class OCRService:
         """将印章文字检测提交到与主 OCR 相同的固定推理线程。"""
         return self._inference_executor.submit(self.recognize_stamp_text, image_path)
 
+    def _initialize_stamp_recognition_pipeline(self) -> None:
+        """Load the official PaddleX seal-recognition pipeline once."""
+        if not STAMP_RECOGNITION_ENABLED or self.stamp_recognition_pipeline is not None:
+            return
+        if self.stamp_recognition_model_error is not None:
+            raise RuntimeError(self.stamp_recognition_model_error)
+        if not (
+            STAMP_RECOGNITION_DET_MODEL_DIR.is_dir()
+            and STAMP_RECOGNITION_REC_MODEL_DIR.is_dir()
+        ):
+            self.stamp_recognition_model_error = (
+                "印章专用模型目录不存在: det={}, rec={}".format(
+                    STAMP_RECOGNITION_DET_MODEL_DIR,
+                    STAMP_RECOGNITION_REC_MODEL_DIR,
+                )
+            )
+            raise RuntimeError(self.stamp_recognition_model_error)
+        try:
+            self.stamp_recognition_pipeline = _create_inference_pipeline(
+                _build_stamp_recognition_config(), "seal_recognition"
+            )
+            logger.info(
+                "Official seal recognition pipeline ready: det={}, rec={}",
+                STAMP_RECOGNITION_DET_MODEL_DIR,
+                STAMP_RECOGNITION_REC_MODEL_DIR,
+            )
+        except Exception as exc:
+            self.stamp_recognition_model_error = str(exc)
+            logger.warning("Official seal recognition unavailable: {}", exc)
+            raise
+
+    def recognize_stamp_with_official_model(self, image_path: str) -> dict[str, Any]:
+        """Recognize one cropped seal with PaddleX's seal-specific pipeline."""
+        if not STAMP_RECOGNITION_ENABLED:
+            return {"texts": [], "scores": [], "boxes": [], "polys": []}
+        self._initialize_stamp_recognition_pipeline()
+        for result in self.stamp_recognition_pipeline.predict(
+            image_path,
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_layout_detection=False,
+            seal_det_limit_side_len=736,
+            seal_det_limit_type="min",
+            seal_rec_score_thresh=0.05,
+        ):
+            seal_results = result.get("seal_res_list", [])
+            if not seal_results:
+                break
+            seal_result = seal_results[0]
+            texts = [str(item) for item in seal_result.get("rec_texts", [])]
+            scores = [float(item) for item in seal_result.get("rec_scores", [])]
+            polys = []
+            for poly in seal_result.get("rec_polys", seal_result.get("dt_polys", [])):
+                polys.append(poly.tolist() if hasattr(poly, "tolist") else list(poly))
+            return {"texts": texts, "scores": scores, "boxes": [], "polys": polys}
+        return {"texts": [], "scores": [], "boxes": [], "polys": []}
+
+    def submit_recognize_stamp_with_official_model(self, image_path: str):
+        return self._inference_executor.submit(
+            self.recognize_stamp_with_official_model, image_path
+        )
+
     def submit_recover_id_front_fields(self, image_path: str, **kwargs):
         """Run conditional ID-front field recovery on the predictor-owning thread."""
         return self._inference_executor.submit(
@@ -943,6 +1051,11 @@ class OCRService:
             )
 
     def shutdown(self) -> None:
+        if self.stamp_recognition_pipeline is not None:
+            close = getattr(self.stamp_recognition_pipeline, "close", None)
+            if callable(close):
+                close()
+            self.stamp_recognition_pipeline = None
         if self.stamp_text_pipeline is not None:
             close = getattr(self.stamp_text_pipeline, "close", None)
             if callable(close):

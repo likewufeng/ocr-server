@@ -57,6 +57,9 @@ x-experiment-service: &experiment-service
     STAMP_SERVICE_API_KEY: ${STAMP_SERVICE_API_KEY:-}
     STAMP_TEXT_DET_ENABLED: ${STAMP_TEXT_DET_ENABLED:-false}
     STAMP_TEXT_DET_MODEL_DIR: ${STAMP_TEXT_DET_MODEL_DIR:-models/stamp_text_det_rest}
+    STAMP_RECOGNITION_ENABLED: ${STAMP_RECOGNITION_ENABLED:-true}
+    STAMP_RECOGNITION_DET_MODEL_DIR: ${STAMP_RECOGNITION_DET_MODEL_DIR:-models/official_models/PP-OCRv4_server_seal_det}
+    STAMP_RECOGNITION_REC_MODEL_DIR: ${STAMP_RECOGNITION_REC_MODEL_DIR:-models/official_models/PP-OCRv4_server_rec}
   command: >-
     sh -c 'if [ ! -d /root/.paddlex/official_models ]; then
     cp -a /app/models/. /root/.paddlex/; fi;

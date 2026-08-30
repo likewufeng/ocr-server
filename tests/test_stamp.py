@@ -108,6 +108,8 @@ class StampOCRTest(unittest.TestCase):
         future = Future()
         future.set_result({"texts": [], "scores": [], "boxes": []})
         with TemporaryDirectory() as directory, patch(
+            "app.services.stamp_service.STAMP_RECOGNITION_ENABLED", False
+        ), patch(
             "app.services.stamp_service.ocr_service.submit_recognize", return_value=future
         ):
             result = service.recognize_image(image, "request-1", Path(directory), True)
@@ -121,7 +123,9 @@ class StampOCRTest(unittest.TestCase):
         image = np.full((100, 100, 3), 255, dtype=np.uint8)
         future = Future()
         future.set_result({"texts": ["方印"], "scores": [0.9], "boxes": [[1, 2, 30, 20]]})
-        with TemporaryDirectory() as directory, patch.object(
+        with TemporaryDirectory() as directory, patch(
+            "app.services.stamp_service.STAMP_RECOGNITION_ENABLED", False
+        ), patch.object(
             service, "analyze_shape", return_value={"shape": "unknown", "shape_confidence": 0.2}
         ), patch.object(service, "unwrap_seal") as unwrap, patch(
             "app.services.stamp_service.ocr_service.submit_recognize", return_value=future

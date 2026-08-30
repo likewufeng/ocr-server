@@ -50,6 +50,23 @@ STAMP_TEXT_DET_MODEL_DIR = Path(
 )
 if not STAMP_TEXT_DET_MODEL_DIR.is_absolute():
     STAMP_TEXT_DET_MODEL_DIR = BASE_DIR / STAMP_TEXT_DET_MODEL_DIR
+STAMP_RECOGNITION_ENABLED = _env_bool("STAMP_RECOGNITION_ENABLED", True)
+STAMP_RECOGNITION_DET_MODEL_DIR = Path(
+    os.getenv(
+        "STAMP_RECOGNITION_DET_MODEL_DIR",
+        "models/official_models/PP-OCRv4_server_seal_det",
+    )
+)
+STAMP_RECOGNITION_REC_MODEL_DIR = Path(
+    os.getenv(
+        "STAMP_RECOGNITION_REC_MODEL_DIR",
+        "models/official_models/PP-OCRv4_server_rec",
+    )
+)
+if not STAMP_RECOGNITION_DET_MODEL_DIR.is_absolute():
+    STAMP_RECOGNITION_DET_MODEL_DIR = BASE_DIR / STAMP_RECOGNITION_DET_MODEL_DIR
+if not STAMP_RECOGNITION_REC_MODEL_DIR.is_absolute():
+    STAMP_RECOGNITION_REC_MODEL_DIR = BASE_DIR / STAMP_RECOGNITION_REC_MODEL_DIR
 # 银行名称别名、卡种文案和 BIN/IIN 数据文件。生产环境可挂载更新该文件，无需修改解析代码。
 BANK_CARD_CATALOG_FILE = BASE_DIR / os.getenv(
     "BANK_CARD_CATALOG_FILE", "app/resources/bank_card/catalog.json"
