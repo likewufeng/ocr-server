@@ -144,18 +144,6 @@ class StampOCRTest(unittest.TestCase):
         })
         self.assertEqual(words[0]["box"], [2, 3, 20, 15])
 
-    def test_low_quality_rest_candidate_does_not_replace_baseline(self):
-        baseline = {"words": [{"text": "河南省吉米特", "confidence": 0.80}]}
-        rest = {"words": [
-            {"text": "A", "confidence": 0.70},
-            {"text": "R", "confidence": 0.35},
-        ]}
-        self.assertLess(
-            StampOCRService._candidate_quality(rest),
-            StampOCRService._candidate_quality(baseline) + 0.08,
-        )
-
-
 class StampDependencyTest(unittest.TestCase):
     def test_remote_payload_supports_base64_stamps(self):
         payload = {"data": {"stamps": [{"base64": "aGVsbG8=", "box": {"x1": 1, "y1": 2, "x2": 4, "y2": 6}}]}}

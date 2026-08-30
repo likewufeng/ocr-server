@@ -21,7 +21,6 @@ import numpy as np
 
 from app.config import (
     STAMP_RECOGNITION_ENABLED,
-    STAMP_TEXT_DET_ENABLED,
     STAMP_SERVICE_API_KEY,
     STAMP_SERVICE_TIMEOUT_SECONDS,
     STAMP_SERVICE_URL,
@@ -278,33 +277,6 @@ class StampOCRService:
             })
         return words
 
-    @staticmethod
-    def _candidate_quality(result: Dict[str, Any]) -> float:
-        """Return a conservative quality score for comparing OCR candidates."""
-        texts = [str(item.get("text") or "") for item in result.get("words", [])]
-        text = "".join(texts)
-        if not text:
-            return -1.0
-        scores = [
-            max(0.0, min(1.0, float(item.get("confidence") or 0.0)))
-            for item in result.get("words", [])
-            if item.get("text")
-        ]
-        if not scores:
-            return -1.0
-        printable = sum(
-            1
-            for char in text
-            if "\u4e00" <= char <= "\u9fff"
-            or (char.isascii() and char.isalnum())
-        ) / max(1, len(text))
-        length_score = min(1.0, len(text) / 12.0)
-        return (
-            0.65 * (sum(scores) / len(scores))
-            + 0.20 * printable
-            + 0.15 * length_score
-        )
-
     def recognize_image(
         self, image: np.ndarray, request_id: str, output_dir: Path,
         debug: bool = False, artifact_prefix: str = "stamp",
@@ -342,25 +314,6 @@ class StampOCRService:
                 str(input_path), request_id=request_id, output_dir=output_dir,
                 document_type=None, auto_orientation=False, min_score=0.35,
             ).result()
-        # ReST 微调检测器针对原始曲线文字；没有模型、模型报错或没有检出时，
-        # 回退到现有的圆章展开 OCR，保证新增能力不改变默认行为。
-        if recognition_source == "baseline" and STAMP_TEXT_DET_ENABLED:
-            try:
-                if cv2.imwrite(str(source_path), image[:, :, :3]):
-                    rest_result = ocr_service.submit_recognize_stamp_text(
-                        str(source_path)
-                    ).result()
-                    baseline_quality = self._candidate_quality({
-                        "words": self._words_from_result(result or {})
-                    })
-                    rest_quality = self._candidate_quality({
-                        "words": self._words_from_result(rest_result or {})
-                    })
-                    if rest_quality >= baseline_quality + 0.08:
-                        result = rest_result
-            except Exception:
-                # 实验模型异常时继续返回基线结果。
-                pass
         words = self._words_from_result(result or {})
         text = " ".join(item["text"] for item in words if item["text"]).strip()
         confidence = max((item["confidence"] for item in words), default=0.0)

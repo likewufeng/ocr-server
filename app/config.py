@@ -42,14 +42,6 @@ OUTPUT_DIR = BASE_DIR / os.getenv("OUTPUT_DIR", "data/outputs")
 CACHE_DIR = BASE_DIR / os.getenv("CACHE_DIR", "data/cache")
 MODEL_DIR = BASE_DIR / os.getenv("MODEL_DIR", "models")
 LOG_DIR = BASE_DIR / os.getenv("LOG_DIR", "data/logs")
-# ReST 微调出的印章文字检测模型目录。模型只在显式开启后加载，避免未导出
-# 或未验证的训练产物影响现有 OCR 接口。
-STAMP_TEXT_DET_ENABLED = _env_bool("STAMP_TEXT_DET_ENABLED", False)
-STAMP_TEXT_DET_MODEL_DIR = Path(
-    os.getenv("STAMP_TEXT_DET_MODEL_DIR", "models/stamp_text_det_rest")
-)
-if not STAMP_TEXT_DET_MODEL_DIR.is_absolute():
-    STAMP_TEXT_DET_MODEL_DIR = BASE_DIR / STAMP_TEXT_DET_MODEL_DIR
 STAMP_RECOGNITION_ENABLED = _env_bool("STAMP_RECOGNITION_ENABLED", True)
 STAMP_RECOGNITION_DET_MODEL_DIR = Path(
     os.getenv(
